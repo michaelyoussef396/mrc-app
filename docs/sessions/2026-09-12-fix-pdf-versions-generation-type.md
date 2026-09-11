@@ -47,6 +47,8 @@ Fix P0-A's invalid inspection EF history provenance and expose history insert fa
 - 09:32 · codex · [codex] · all four mutation checks rejected; begin final full gates and scope/PII check · target EF, new test, this log · restored source byte-for-byte; full Vitest and normalized tsc comparison pending
 - 09:33 · codex · [codex] · full gates compared with baseline · target EF and new test · 80 files / 1318 tests, only the same baseline failure; tsc 100 lines / 41 distinct normalized errors, zero additions/removals
 - 09:34 · codex · [codex] · finish evidence, inspect diff scope/PII, then attempt local explicit-path commit · all three Touching paths · source 18 + test 85 = 103 reviewable lines; deployment and review remain human steps
+- 09:34 · codex · [codex] · implementation committed locally as 288a6db · all three Touching paths · scope/PII and staged diff checks passed; no push; working tree clean after commit
+- 09:34 · codex · [codex] · record final handover and commit this log update · this log only · implementation/tests complete; Claude review and Michael deployment remain pending
 
 ## What I did
 
@@ -65,6 +67,8 @@ Fix P0-A's invalid inspection EF history provenance and expose history insert fa
 - Final full Vitest, exit 1: **Test Files 1 failed | 79 passed (80); Tests 1 failed | 1317 passed (1318)**. The new handler test is **3/3 passing** after all mutation restorations. The sole failure is the exact baseline `fetchVersionPdfBlob` test named above; no tests dropped.
 - Final tsc, exit 2: **100 error lines / 41 distinct normalized errors**. Set comparison after stripping `(line,col)`: **added [] / removed []**. Raw final outputs: `/private/tmp/mrc-pdfver-{vitest,tsc}-after.log`; comparison: `/private/tmp/mrc-pdfver-tsc-comparison.json`.
 - `git diff --check` passed. `package-lock.json` unchanged. Mechanical source diff against dedd0a3: 14 added + 4 deleted = **18 SOURCE** lines. New file measured with `git diff --no-index --numstat /dev/null src/lib/__tests__/generateInspectionPdf.versionHistory.test.ts`: 85 added = **85 TEST** lines. Total **103**, excluding this session log; no subtraction or waiver. The no-index command exits 1 normally when differences exist.
+- Post-commit measurement `git diff --numstat dedd0a3...HEAD -- . ':(exclude)docs/sessions/'` confirms the same 85/0 test and 14/4 source lines. Manual diff inspection plus pattern scan found no customer PII or secrets; only synthetic UUID, localhost.invalid and dummy credentials in tests. Exact changed paths are the three entries under Touching.
+- Local implementation commit: **288a6db** (`fix: preserve inspection PDF history with valid generation type`). First commit attempt combined with read-only checks failed to create the worktree `index.lock`; the standalone authorized `git commit` command succeeded without escalation. No permission flags or sandbox settings changed.
 
 Verification commands (absolute Node 24; executed):
 
@@ -121,7 +125,7 @@ Prepared only; **not run**. No Supabase, Vercel, push, merge, or PR command will
 
 ## Open
 
-- Local commit attempt pending. Claude review and Michael's DEV deployment/verification remain outstanding. See separate recovery question above.
+- Implementation committed locally as 288a6db; only this final log update follows it. Claude review and Michael's DEV deployment/verification remain outstanding. See separate recovery question above. No code work remains in this unit.
 
 ## Resume from here
 
