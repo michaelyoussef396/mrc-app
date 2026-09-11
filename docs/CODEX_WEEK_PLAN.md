@@ -4,6 +4,33 @@ Read `docs/CODEX_AUTHOR_BRIEF.md` first. This file is the work list; the
 brief is the procedure. Working window is Fri–Sun, Claude returns Sunday
 6pm.
 
+## Production snapshot — 11 Sep monitoring intake
+
+**`origin/production` is `bd0e984` and has not moved since 8 Sep. The
+week's changes merged to main — the Sentry `ignoreErrors` fix, equipment
+day counts, and per-item equipment days — are NOT in production.** A
+main merge is not a production release. Michael supplied this production
+state; local refs agree (`origin/main` is now `222386f`, after PR #169;
+the lane cut at `9f831b6` below remains historical). Edge Function changes
+also require Michael's separate deploy, including P2-23.
+
+**Any monitoring note saying `sentry.ts` still suppresses `Failed to fetch`,
+`NetworkError`, `Load failed` and `AuthRetryableFetchError` is CORRECT about
+production and stale about main.** PR #167 removed them on main; all four
+remain in the `bd0e984` production revision. Do not dismiss a production
+finding from a main code read, or repeat the already-merged fix on main.
+
+The Sentry connector was **`needs_reconnect` in all seven runs, 8–11 Sep**:
+four days without browser-error visibility through monitoring. **Michael's
+OAuth reconnect, not a code item (T25).** This is separate from the
+suppression rules; no Sentry findings during that gap is not a health signal.
+
+**New live P0 intake:** P0-14 (lost job-booking confirmation), P0-A
+(inspection version inserts rejected), P0-B (unretried bounced confirmation).
+These require explicit triage alongside P0-13; the pre-intake priority wording
+below is historical and does not rank these newly verified incidents below it.
+Details and proposed fixes are in `docs/TODO.md`; this intake writes docs only.
+
 ## Read first — the highest-priority item this window is NOT yours
 
 **P0-13, quote PDF layout overlap, outranks everything below. Codex must
