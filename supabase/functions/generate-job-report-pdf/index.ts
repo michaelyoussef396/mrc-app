@@ -8,6 +8,7 @@ import { z } from 'https://esm.sh/zod@3.22.4'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const TEMPLATE_URL = `${SUPABASE_URL}/storage/v1/object/public/pdf-templates/job-report-template.html`
+const MAX_VERSION_INSERT_ATTEMPTS = 3
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -405,7 +406,7 @@ Deno.serve(async (req) => {
     html = html.replace(/\{\{[^}]+\}\}/g, '')
 
     // ===== STEP 6: Store and return =====
-    const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1
+    let newVersion = (jc.pdf_version || 0) + 1
 
     // previewOnly: render HTML and return it with ZERO persistence side
     // effects — no job_completions UPDATE, no bucket upload, no
@@ -465,6 +466,40 @@ Deno.serve(async (req) => {
 
     const reportUrl = urlData.publicUrl
 
+    // Log to job_completion_pdf_versions (not audited via trigger; we
+    // capture generated_by directly from the JWT for column-level audit)
+    let userId: string | null = null
+    if (authHeader) {
+      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+      userId = user?.id || null
+    }
+
+    // Match api/render-job-report-pdf.ts: reread history after a unique race.
+    for (let attempt = 1; attempt <= MAX_VERSION_INSERT_ATTEMPTS; attempt++) {
+      const { data: maxRow, error: maxError } = await supabase
+        .from('job_completion_pdf_versions')
+        .select('version_number')
+        .eq('job_completion_id', jobCompletionId)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (maxError) throw new Error('Version lookup failed')
+      newVersion = (maxRow?.version_number ?? 0) + 1
+      const { error: versionError } = await supabase
+        .from('job_completion_pdf_versions')
+        .insert({
+          job_completion_id: jobCompletionId,
+          version_number: newVersion,
+          pdf_url: reportUrl,
+          generated_by: userId,
+        })
+      if (!versionError) break
+      if (versionError.code !== '23505') throw new Error('Version insert failed')
+      if (attempt === MAX_VERSION_INSERT_ATTEMPTS) {
+        throw new Error('Version insert exhausted retries; retry report generation')
+      }
+    }
+
     // Update job_completions record (audited write — JWT-bound client so
     // audit_log_trigger() captures the calling admin's UUID)
     const { error: updateError } = await supabaseAudited
@@ -478,27 +513,6 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error('Failed to update job completion:', updateError)
-    }
-
-    // Log to job_completion_pdf_versions (not audited via trigger; we
-    // capture generated_by directly from the JWT for column-level audit)
-    let userId: string | null = null
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-      userId = user?.id || null
-    }
-
-    const { error: versionError } = await supabase
-      .from('job_completion_pdf_versions')
-      .insert({
-        job_completion_id: jobCompletionId,
-        version_number: newVersion,
-        pdf_url: reportUrl,
-        generated_by: userId,
-      })
-
-    if (versionError) {
-      console.error('Failed to log version:', versionError)
     }
 
     console.log(`Job report PDF generated: ${reportUrl}`)
