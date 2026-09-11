@@ -112,3 +112,39 @@ Report: exact changed paths, measured SOURCE/TEST split, baseline figures,
 failing-then-passing evidence, and anything you scoped OUT and why. An
 unrecorded "not now" is indistinguishable from "not noticed" and reads to
 the next session as "already handled".
+
+## AMENDMENT — 11 Sep, supersedes the rules above where they conflict
+
+### Edge Functions: you MAY write them
+
+`supabase/functions/**` is no longer off limits to editing. You may write,
+fix and test Edge Function code, and you may write NEW migrations for DEV.
+
+What has NOT changed: you run NO supabase CLI command, ever. Not with the
+DEV ref, not `migration list`, not `functions deploy`. There is no Codex
+guard hook in this repo — `block-supabase-prod.sh` protects Claude Code
+only — and the PROD ref `ecyivrxjpsmjmexqatym` differs from DEV
+`ctppzqnysmzynkxjlzta` by one string with nothing mechanical in between.
+
+So: you write the code AND you write the exact command Michael should run,
+in your session log, with the DEV ref spelled out. He runs it. Nothing
+reaches production until Claude has reviewed the week.
+
+Still sacred, still needs Michael's word in-session: priStill s,
+statusstatusstatusstath/statusstatusstatusstath/statussokstatusstatusstatutsstatusstatusstatusstath/statusstatusstg migstatusstat apstatusstatusstatusstath/statusstatusstatusstath/statussokstatusstatussrite`. Approval prompts are off.
+`workspace`workspace`workspace`workspace`workspace`workspace`workspace`workspace`womakes git and supabase commands MORE dangerous, not less, because
+nothing pauses — the ban on both is absolute.
+
+These are the stop points that replacThese are the stop points that replacThese are the stop points thatceed tThese are the stop points that replacThese are the stop points that repl BThese are the stop points that replacThese are the stop pots the bThese are the stop points that replacThese are the stop points that rep## Session log is mandatory and it IS the handover
+
+Every session writes `docsEvery session writes `docsEvery session writes `docsEvery session wr, not at the end. Claude reads these on Sunday to review
+the week and continue. If a session dies, the log is all that survithe week and continue. If a session dies, the log is all that survithe week and continue. If a session dies, the log is all that survithe week and continue. If a session dies, the log is all that survithe week and continue. If a sessedthe week and continue. If a session dies, the log is all that survithe week and continue. If a session dies, the log is all that survithe week andpassing. Mutation check. Exact output.
+    ## Commands for Michael
+    Any supabase, vercel or git command you prepared but did not run.
+    Verbatim, with the DEV ref spelled out.
+    ## Scoped OUT and why
+    An unrecorded "not now" reads to the next session as "already handled".
+    ## Open questions for Claude
+    Enough context to answer cold.
+
+Write the Header and Baseline sections BEFORE the first code change.
