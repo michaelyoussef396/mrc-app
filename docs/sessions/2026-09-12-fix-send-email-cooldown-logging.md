@@ -63,7 +63,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Open
 
-- Michael decides Step 3 (recipient + stable email type recommended); nothing implemented.
+- Step 3 approved in principle only; explicitly NOT implemented this session or shipped in this unit. Michael decides with Claude on Sunday; separate diff and review required.
 - Michael applies the single migration and deploys DEV; Claude review pending.
 
 ## Resume from here
@@ -118,7 +118,7 @@ supabase functions deploy send-email --project-ref ctppzqnysmzynkxjlzta
 
 ## Scoped OUT and why
 
-- Cooldown behavior: key/window/exemptions/queue-and-retry remain unchanged; Michael explicitly requires approval before Step 3.
+- Cooldown behavior: key/window/exemptions/queue-and-retry remain unchanged. Michael approved recipient + stable type in principle but explicitly deferred implementation to a separate unit and review; Michael decides with Claude on Sunday.
 - P0-B changes, historical repairs and automatic retry: outside ownership or report-only instruction.
 - Timeline `src/hooks/useActivityTimeline.ts:180` and notification trigger `supabase/migrations/20260823090000_notifications_fan_out.sql:251–257,283–288` label non-failed statuses as sent. Documentation only per Michael; a separate unit must add truthful labels. This unit adds records but does not claim accurate operator-facing presentation.
 - IP request-abuse throttle `send-email/index.ts:125–133` remains unchanged: it rejects before parsing/validating a recipient; this patch records the two validated send-suppression paths (recipient/global).
@@ -176,3 +176,46 @@ supabase functions deploy send-email --project-ref ctppzqnysmzynkxjlzta
 - 09:36 · codex · root · Pre-commit staged checks complete · exactly four Touching paths · `git diff --cached --check` clean; mechanical base dedd0a3 count 138 = 46 SOURCE / 92 TEST. Added email strings contain only synthetic `recipient@example.invalid`; no credential markers or customer PII found. Original CHECK quote verified byte-for-byte, header gpt-6-astra ULTRA verified. Local staging succeeded.
 - Next action after local commit: wait for Michael's Step 3 decision. Recommend recipient + stable templateName as the cooldown key while retaining five minutes; it allows distinct report/booking messages and keeps protection against repeated same-type sends. It is still not event-level idempotency: two legitimate same-type events can collide, and concurrent checks are non-atomic. Queue-and-retry would improve recovery but needs separate durable scheduling/worker ownership and a larger unit. No cooldown behavior change is part of this commit.
 - Claude handover: review against dedd0a3. Migration and DEV deployment commands are prepared above and unrun. No terminal Codex reviewer launched: dated author brief defers review to Claude's return. Working tree should be clean after the local commit; no automatic continuation into Step 3.
+
+- 09:42 · codex · root · Michael accepted the unit and requested documentation-only closure: verbatim P0-B statement, exact future cooldown diff, existing type discriminator and concrete same-type collision · this session log only · no implementation authorized this session; Michael and Claude decide Sunday.
+- [same_type_case] 09:42 · codex · same_type_case · Delegated read-only verification of a concrete same-type collision and caller line references · existing send callers · no edits; root transcribes findings into this log.
+
+## Unit accepted — documentation-only closure
+
+Michael accepted commit `4c81afa`: SOURCE 46 / TEST 92, nine regression tests with red-first evidence and mutation checks. Only this session log changes in this closure. No cooldown implementation, schema change, test change, deployment or live query is part of it.
+
+### P0-B impact statement — Michael's exact words
+
+> That means EVERY bounce since the system launched still reads as delivered, not just the 10 Sep one.
+
+Recorded verbatim as Michael's impact assessment. The repository audit establishes provider acceptance stored as `sent` with no in-repo consumer/reconciler revisiting it; it did not independently audit every historical bounce, manual repair or external webhook configuration. The stored value is `sent`; the misleading interpretation of that value as delivery is the concern. Existing reader/notification line references remain under “Scoped OUT and why.”
+
+### Proposed cooldown change — NOT IMPLEMENTED
+
+References below use the accepted `4c81afa` tree, after the logging insertion. The original defect's base-`dedd0a3` line trace above remains unchanged.
+
+- `supabase/functions/send-email/index.ts:201`: change the explanatory comment to `// Rate limiting: max 1 email of the same type to the same recipient per 5 minutes`.
+- In the recipient lookup at `:205–211`, immediately after `.eq('recipient_email', to)` at `:208`, add exactly `.eq('template_name', templateName || 'custom')`.
+- At `:214`, make the response/audit reason accurate for the narrower key: `return suppressionResponse('Rate limit: wait 5 minutes before resending this email type to same recipient')`.
+- Keep the five-minute cutoff at `:204`, the existing `sent` status filter, explicit recipient bypass at `:203`, global hourly limit at `:218–228`, suppression logging and provider send/retry behavior. This changes eligibility to send, which requires its own diff and review. No such change exists in this unit.
+
+### What stable email type resolves to
+
+An existing discriminator is already carried end to end: `templateName?: string` in `src/lib/api/notifications.ts:18–26`, forwarded in the send-email request at `:331–333`; `supabase/functions/send-email/index.ts:38` accepts it as an optional string and `:162` extracts it. Both suppression (`:181`) and normal-send (`:244`) logs store `template_name: templateName || 'custom'`. The proposed lookup uses exactly that existing normalization. No new request field, database column or caller change is needed for the minimal proposal.
+
+The failing sequence already has distinct literal values: `src/pages/ViewReportPDF.tsx:1125–1133` sends `report-approved`; `src/components/leads/BookJobSheet.tsx:571–576` sends `job-booking-confirmation`. A report-approved record would therefore no longer block the booking-confirmation lookup solely because its recipient matches.
+
+“Stable” here means these existing caller-supplied template identifiers, not the subject, generated HTML, lead ID or event identity. The schema does NOT enforce an enum or require a nonempty type: missing/empty values become `custom` and share one bucket. Renaming a literal changes its bucket. Requiring a canonical type or adding an event discriminator would widen the next unit beyond this one-filter change and needs an explicit design decision; it is not assumed here.
+
+### Concrete legitimate same-type collision
+
+Hypothetical example grounded in existing code, not an observed customer incident: at 10:00 a job is booked and its confirmation is accepted by Resend; at 10:02 the customer corrects availability and staff legitimately reschedules that same job. The customer needs the second confirmation because its date/time changed.
+
+`src/components/leads/BookJobSheet.tsx:486–494` distinguishes `job_booked` from `job_rescheduled`, but BOTH paths then build confirmation content for the current schedule at `:549–570` and send to the same `leadData.email` with the SAME `templateName: 'job-booking-confirmation'` at `:571–576`, without a bypass. Under the proposed key, the 10:00 `sent` row still matches recipient + type within five minutes. The 10:02 updated confirmation would receive 429 and a suppression audit would be attempted; the reschedule is already saved (`:470–474`). The caller logs the email error at `:577–579` while showing booking/reschedule success at `:589–593`. There is no automatic deferred send. This is a legitimate updated transaction, not a duplicate: recipient + type improves the report/booking case but does not solve this collision.
+
+### Final stop instruction
+
+Cooldown change APPROVED IN PRINCIPLE ONLY, NOT IMPLEMENTED THIS SESSION. Michael decides with Claude on Sunday. Keep it in a separate unit with its own diff and review; the accepted logging unit must not acquire a change to when customers receive email. Documentation is complete; stop here.
+
+- [same_type_case] 09:43 · codex · same_type_case · Verified booking then rescheduling uses the same template identifier and reports email failure only to console · BookJobSheet.tsx:470–494,549–593 read-only · hypothetical collision confirmed from code; no edits/tests/live queries; root transcribed this result.
+- 09:43 · codex · root · Documentation-only closure complete; inspect and commit only this session log · this file · original unit remains 46 SOURCE / 92 TEST; no test rerun needed for prose-only changes.
