@@ -98,12 +98,12 @@ Serialise complete saves — including child reconciliation — in invocation or
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-09 21:47 AEST · Tool: CC
-- Branch: fix/inspection-save-integrity @ 8e0e695 feat: make inspection create idempotent under concurrent saves
+- Updated: 2026-09-09 21:51 AEST · Tool: CC
+- Branch: fix/inspection-save-integrity @ 5848ed5 docs: log Codex review and confirmed reproduction for the inspection create latch
 - Unpushed commits:
+  - `5848ed5 docs: log Codex review and confirmed reproduction for the inspection create latch`
   - `8e0e695 feat: make inspection create idempotent under concurrent saves`
 - Uncommitted files (this log excluded):
-  - ` M docs/codex-review-log.md`
   - `?? docs/sessions/2026-09-09-fix-inspection-data-hidden.md`
   - `?? docs/sessions/2026-09-09-fix-inspection-save-integrity-2.md`
   - `?? docs/sessions/2026-09-09-fix-inspection-save-integrity-3.md`
@@ -111,6 +111,6 @@ Serialise complete saves — including child reconciliation — in invocation or
 - Last step-log line: 20:25 · CC · CC · confirmed no diagnostic residue · (none) · suite back to 79 files / 1315 tests, only the known Node-24 reportPipeline failure
 - Codex threads:
   - `codex resume 01a08579-16c2-7620-ae38-9885de181c4d`
-- Window: five_hour 45% used, resets 22:10 AEST (12:10 UTC)
+- Window: five_hour 46% used, resets 22:10 AEST (12:10 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
