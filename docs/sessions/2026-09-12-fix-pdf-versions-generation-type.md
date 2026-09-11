@@ -49,6 +49,7 @@ Fix P0-A's invalid inspection EF history provenance and expose history insert fa
 - 09:34 · codex · [codex] · finish evidence, inspect diff scope/PII, then attempt local explicit-path commit · all three Touching paths · source 18 + test 85 = 103 reviewable lines; deployment and review remain human steps
 - 09:34 · codex · [codex] · implementation committed locally as 288a6db · all three Touching paths · scope/PII and staged diff checks passed; no push; working tree clean after commit
 - 09:34 · codex · [codex] · record final handover and commit this log update · this log only · implementation/tests complete; Claude review and Michael deployment remain pending
+- 09:42 · codex · [codex] · Michael accepted unit; clarify verification limits and reconstruction uncertainty before stopping · this log only · no new investigation, code changes, or unit; local documentation commit follows
 
 ## What I did
 
@@ -78,6 +79,10 @@ VITE_SUPABASE_URL=https://localhost.invalid VITE_SUPABASE_ANON_KEY=dummy /Users/
 /Users/michaelyoussef/.nvm/versions/node/v24.20.0/bin/node ./node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit
 ```
 
+## Verification limits — Sunday's reviewer
+
+The Node test with mocked boundaries **does NOT verify the Deno runtime or the live PostgreSQL constraint**. Its simulated constraint uses Michael's supplied allowed values; it proves the handler's outgoing value and behavior on injected errors, not that a real database now accepts the insert. Successful persistence remains unverified until Michael deploys to DEV, invokes the persisted generation path, and confirms a newly stored `pdf_versions` row with `generation_type = 'legacy_ef_render'` and the expected inspection/version, alongside successful report delivery. Deployment or HTTP 200 alone is insufficient evidence.
+
 ## Commands for Michael
 
 From this worktree, after review:
@@ -98,6 +103,7 @@ Prepared only; **not run**. No Supabase, Vercel, push, merge, or PR command will
 ## Open questions for Claude
 
 - **Separate recovery question for Michael:** which of the 48 inspections still have trustworthy historical artifacts/metadata, and which lost rows are unrecoverable? Decide recovery only from actual retained evidence; this change does not backfill.
+- **Reconstructibility: UNKNOWN; surviving data was not inspected.** Current `pdf_url` and `pdf_version` alone cannot reconstruct prior history; surviving versioned storage objects may support artifact/version reconstruction, but not necessarily complete audit metadata. Without those objects or other retained evidence, the missing historical artifacts cannot be recovered from the current pointer/counter. Michael must establish what survives before deciding whether any rows can be reconstructed.
 - Review this local unit on return Sunday before any production merge. Michael must verify a new history row and a rendered report after DEV deployment; mocked tests do not prove deployment or database state.
 
 ## Codex threads
