@@ -60,6 +60,7 @@ test('overlapping regenerations preserve distinct history despite the same stale
   const db = setup({ history: [1] })
   const results = await Promise.all([db.run(), db.run()])
   assert.deepEqual(results.map(r => r.version).sort(), [2, 3])
+  assert.deepEqual(results.map(r => r.versionHistorySaved), [true, true])
   assert.deepEqual(db.attempts, [2, 2, 3])
   assert.deepEqual(db.rows.slice(1).map(r => [r.job_completion_id, r.generated_by]), [[jobCompletionId, 'caller'], [jobCompletionId, 'caller']])
   assert.deepEqual(db.updates.map(r => r.pdf_version).sort(), [2, 3])
@@ -68,13 +69,16 @@ for (const [failure, options, attempts] of [
   ['retry exhaustion', { insertCode: '23505' }, 3],
   ['non-unique insert error', { insertCode: '42501' }, 1],
   ['history lookup error', { lookupCode: '42501' }, 0],
-]) test(`${failure} returns failure instead of silently dropping audit history`, async () => {
+]) test(`${failure} preserves the report URL and reports unsaved history`, async () => {
   const db = setup(options)
   const result = await db.run()
-  assert.equal(result.status, 500)
-  assert.equal(result.success, false)
+  assert.equal(result.status, 200)
+  assert.equal(result.success, true)
+  assert.equal(result.versionHistorySaved, false)
   assert.equal(db.attempts.length, attempts)
-  assert.equal(db.updates.length, 0)
+  assert.deepEqual(db.updates.map(r => r.pdf_url), [result.pdfUrl])
+  assert.equal(result.pdfUrl, `https://localhost.invalid/${db.uploads[0]}`)
+  assert.equal(db.rows.length, 0)
 })
 test('previewOnly retains zero persistence effects', async () => {
   const db = setup()

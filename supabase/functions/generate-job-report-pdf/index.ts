@@ -475,6 +475,7 @@ Deno.serve(async (req) => {
     }
 
     // Match api/render-job-report-pdf.ts: reread history after a unique race.
+    let versionHistorySaved = false
     for (let attempt = 1; attempt <= MAX_VERSION_INSERT_ATTEMPTS; attempt++) {
       const { data: maxRow, error: maxError } = await supabase
         .from('job_completion_pdf_versions')
@@ -483,7 +484,10 @@ Deno.serve(async (req) => {
         .order('version_number', { ascending: false })
         .limit(1)
         .maybeSingle()
-      if (maxError) throw new Error('Version lookup failed')
+      if (maxError) {
+        console.error('Version lookup failed:', maxError)
+        break
+      }
       newVersion = (maxRow?.version_number ?? 0) + 1
       const { error: versionError } = await supabase
         .from('job_completion_pdf_versions')
@@ -493,11 +497,10 @@ Deno.serve(async (req) => {
           pdf_url: reportUrl,
           generated_by: userId,
         })
+      versionHistorySaved = !versionError
       if (!versionError) break
-      if (versionError.code !== '23505') throw new Error('Version insert failed')
-      if (attempt === MAX_VERSION_INSERT_ATTEMPTS) {
-        throw new Error('Version insert exhausted retries; retry report generation')
-      }
+      console.error('Failed to log version:', versionError)
+      if (versionError.code !== '23505') break
     }
 
     // Update job_completions record (audited write — JWT-bound client so
@@ -522,6 +525,7 @@ Deno.serve(async (req) => {
         success: true,
         pdfUrl: reportUrl,
         version: newVersion,
+        versionHistorySaved,
         jobCompletionId,
         generatedAt: new Date().toISOString(),
       }),
