@@ -6,6 +6,7 @@ import AdminHeader from '@/components/admin/AdminHeader';
 import StatsCard from '@/components/admin/StatsCard';
 import CreateNewLeadModal from '@/components/leads/CreateNewLeadModal';
 import { useAdminDashboardStats } from '@/hooks/useAdminDashboardStats';
+import { StalledInspectionsCard } from '@/components/dashboard/StalledInspectionsCard';
 import { useTodaysSchedule } from '@/hooks/useTodaysSchedule';
 import { useUnassignedLeads } from '@/hooks/useUnassignedLeads';
 import { useTechnicianStats } from '@/hooks/useTechnicianStats';
@@ -213,6 +214,7 @@ export default function AdminDashboard() {
               iconColor={overdueInvoicesCount > 0 ? 'text-[#FF3B30]' : 'text-[#86868b]'}
             />
           </div>
+          <StalledInspectionsCard />
           {failedWebhooks > 0 && (
             <div
               role="button"
