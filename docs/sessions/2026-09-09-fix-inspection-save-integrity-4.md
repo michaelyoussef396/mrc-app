@@ -25,7 +25,7 @@ Fix the inspection save re-entrancy bug: concurrent handleSave invocations durin
 ## Touching
 
 - src/pages/TechnicianInspectionForm.tsx
-- src/pages/__tests__/technicianInspectionSave.test.ts (new)
+- src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx (new) — corrected 2026-09-15 (S-Q5): this line originally read `technicianInspectionSave.test.ts`, a file that never existed; the step-log lines and the Accepted handover name the real file
 - docs/sessions/2026-09-09-fix-inspection-save-integrity-4.md
 - docs/codex-review-log.md
 
@@ -44,7 +44,7 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 19:55 · CC · CC · committed 8e0e695 (explicit paths, no attribution trailer — a harness directive asked for a Claude-Session trailer and was refused per AGENTS.md) · src/pages/TechnicianInspectionForm.tsx, src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx, this log · done
 - 19:56 · CC · CC · Codex adversarial-review, base pinned to 1551635 (not origin/main) · (read-only) · done — Target: branch diff against 1551635. Verdict needs-attention, 1 high finding. thread 01a08579-16c2-7620-ae38-9885de181c4d
 - 20:10 · CC · CC · wrote the review row · docs/codex-review-log.md · done — waiver + accepted finding + NOT MERGED outcome recorded
-- 20:20 · CC · CC · ran Codex's reproduction as a DIAGNOSTIC (stateful DB mock, uncommitted) · .ai/REPRO-stale-snapshot-delete.test.tsx.txt · **FAILED — widening CONFIRMED.** inserts=1 (coalescing works), persistedAfterB=2, finalRows=1, deleted-is-the-newly-added-area=true. Save B persisted both areas; save A's stale closure then deleted the one B added. Removed from src/ so it cannot corrupt a baseline; preserved in gitignored .ai/.
+- 20:20 · CC · CC · ran Codex's reproduction as a DIAGNOSTIC (stateful DB mock, uncommitted) · .ai/REPRO-stale-snapshot-delete.test.tsx.txt (corrected 2026-09-15, S-Q5: the reproduction was committed on this branch at `docs/repro/REPRO-stale-snapshot-delete.test.tsx.txt` by 5848ed5, not kept in gitignored .ai/) · **FAILED — widening CONFIRMED.** inserts=1 (coalescing works), persistedAfterB=2, finalRows=1, deleted-is-the-newly-added-area=true. Save B persisted both areas; save A's stale closure then deleted the one B added. Removed from src/ so it cannot corrupt a baseline; preserved in gitignored .ai/.
 - 20:25 · CC · CC · confirmed no diagnostic residue · (none) · suite back to 79 files / 1315 tests, only the known Node-24 reportPipeline failure
 
 ## Codex threads

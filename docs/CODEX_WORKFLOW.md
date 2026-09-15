@@ -8,7 +8,7 @@ What this file is: the rulings, the roles, and the exact procedure for running a
 2. disable-model-invocation stays TRUE in the plugin's commands/*.md. Never edit it — plugin updates overwrite it silently. CC invokes the review by calling the companion script the slash command runs anyway: `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" adversarial-review --base main [focus]`. Bash(node:*) is already permitted.
    *Why:* the flag blocks the slash command, not the script; Michael typing the command was the bottleneck. *As applied:* `CLAUDE_PLUGIN_ROOT` is empty in the Bash tool and local `main` is not trustworthy, so the resolved form in §3 uses the absolute path and `--base origin/main`.
 3. Before continuing after any review, CC prints the Target: line and the diff line-count. If Target: is not the intended base/range, abort and report (#653: a bad --base exits 0 and silently reviews a wider diff).
-4. The ~150 reviewable-line limit applies MECHANICALLY to the diff excluding docs/sessions/ — computed with a git pathspec exclude, never by judgment. Above 150 → split before reviewing.
+4. The cap, its unit and its count are defined once, in AGENTS.md (Diff limit); this file does not restate the number. It applies MECHANICALLY to the diff excluding docs/sessions/ — computed with a git pathspec exclude, never by judgment. Above the cap → split before reviewing.
    *Why:* "~150" was judged by eye three times and disputed once.
 5. The plugin inlines the diff only when changed files <= 2 AND diff <= 256 KiB; otherwise self-collect mode. Most multi-file units will be self-collect — that is why rule 3 is mandatory.
    *Why:* plugin constant (`scripts/lib/git.mjs`, `DEFAULT_INLINE_DIFF_MAX_BYTES`); in self-collect mode Codex runs git itself and reads adjacent files.
@@ -52,19 +52,19 @@ What this file is: the rulings, the roles, and the exact procedure for running a
 2. **Measure.** The mechanical count, ruling 4:
 
    ```
-   git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d " (" a " added, " d " deleted)"}'
+   run the source/test count exactly as written in AGENTS.md (Diff limit), over <base>...<head>
    ```
 
-   Print the number. Over 150: split before reviewing. CC subtracts nothing; the 2026-09-05 byte-identical-restore precedent is a waiver Michael applies. Three-dot range = merge-base to HEAD, the range the plugin reviews. `--numstat` prints `-` for binaries, which awk reads as 0.
-3. **Base: always `--base origin/main`.** Never `--base main`: the plugin's auto-detection returns the bare name `main` (`git.mjs` `detectDefaultBranch`), which git resolves to the *local* branch, and local `main` in `~/mrc-app-1` lives in another worktree and lags. For a stacked branch, pass its parent and pre-declare that label.
+   Print both numbers. The cap is defined once, in AGENTS.md (Diff limit); gate the SOURCE number against it. Over the cap: split before reviewing. CC subtracts nothing; the 2026-09-05 byte-identical-restore precedent is a waiver Michael applies. Three-dot range = merge-base to HEAD, the range the plugin reviews. `--numstat` prints `-` for binaries, which awk reads as 0.
+3. **Base: always `--base origin/main`.** Never `--base main`: the plugin's auto-detection returns the bare name `main` (`git.mjs` `detectDefaultBranch`), which git resolves to the *local* branch, and local `main` in `~/mrc-app-1` lives in another worktree and lags. For a stacked branch, pass its parent and pre-declare that label; a same-branch commit declared before the run is likewise a valid base (a unit of several commits reviewed one at a time).
 4. **Never invoke without `--base`.** A dirty tree without `--base` flips the target to `working tree diff` and sends every untracked file in the checkout to OpenAI. `docs/sessions/<log>.md` is untracked for the whole of every session by design, so the tree is always dirty.
 5. **PII check** on `git diff origin/main...HEAD`: names, emails, phones, addresses. Any customer data → no review; add a "Do not review" entry to the log instead.
 6. **Path confinement** for docs/config sessions: `git diff --name-only origin/main...HEAD` must stay inside the paths the session owns; anything else aborts.
-7. Print one announcement line: branch, base, reviewable lines, file count, command, focus.
+7. Print one announcement line: branch, base, source / test lines, file count (3 or more ⇒ self-collect), command, focus.
 
 ## 5. Reading the result
 
-- **First thing printed back, before any finding:** the `Target:` line verbatim and the count from §4.2. Target must read exactly `branch diff against origin/main` (or the pre-declared parent for a stacked branch). Anything else → abort: do not read the findings, do not log them as a review, report.
+- **First thing printed back, before any finding:** the `Target:` line verbatim and the count from §4.2. Target must read exactly `branch diff against origin/main` (or the base declared before the run: a stacked branch's parent, or a same-branch commit). Anything else → abort: do not read the findings, do not log them as a review, report.
 - **Inline vs self-collect.** Inline only when changed files ≤ 2 AND diff ≤ 256 KiB; otherwise Codex is told the context is a summary and runs read-only git itself. Self-collect is slower and Codex reads adjacent files (it has `cat`ed `AGENTS.md` in 3 of the 4 logged runs). The rendered output does not say which mode ran; predict it from the file count.
 - **Thread id.** The foreground rendered block has no thread id. It appears on stderr as `[codex] Thread ready (<id>)` and from `node <script> status --cwd <worktree>` as `Resume in Codex: codex resume <id>`. Capture stderr (`2> file`) and run `status` immediately; write `codex resume <id>` into the session log's "Codex threads" section before anything else.
 - **Present findings verbatim. Apply nothing.** No triage into fixes, no second round. STOP. Michael triages.

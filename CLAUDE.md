@@ -155,18 +155,18 @@ Every session that changes application code stops for a Codex review before open
 
 The wider brief-to-merge flow these nine steps sit inside is in `AGENTS.md` (Workflow) — deliberately not restated here, so the two cannot drift.
 
-1. Finish the unit of work and commit it. The review reads `origin/main...HEAD`; uncommitted work is invisible to it.
-2. Measure: `git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d}'`, run from the worktree root. Over 150: split, or ask Michael for a waiver and log it. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05).
+1. Finish the unit of work and commit it. The review reads `<base>...HEAD` (`origin/main`, or the same-branch commit declared before the run); uncommitted work is invisible to it.
+2. Measure the UNIT's range, `<base>...<head>`, where base is `origin/main` or the same-branch commit declared before the run: `git diff --numstat <base>...<head> -- . ':(exclude)docs/sessions/' | awk '$3 ~ /(__tests__\/|\.test\.|\.spec\.)/ {t+=$1+$2; next} {s+=$1+$2} END {print "source=" s+0, "test=" t+0}'`, run from the worktree root. Print both numbers. Gate on the SOURCE number against the cap defined in `AGENTS.md` (Diff limit) — the number is not restated here. Over the cap: split, or ask Michael for a waiver and log it. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05). Also print the changed-file count (`git diff --name-only <base>...<head> | wc -l` — no exclude: the companion counts every changed file, `docs/sessions/` included); 3 or more files means the companion runs self-collect.
 3. Check the diff for customer PII. Any hit: no review; "Do not review" entry in the log instead.
-4. Run it: `node /Users/michaelyoussef/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs adversarial-review --wait --cwd <worktree> --base origin/main -- <focus>`, with `2> <file>` so the stderr line carrying the thread id is kept. Never `--base main`, never without `--base`, never `--help` on that subcommand.
-5. Print the `Target:` line and the line count before anything else. Target not `branch diff against origin/main` (or the pre-declared parent of a stacked branch): abort, discard unread, report.
+4. Run it: `node /Users/michaelyoussef/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs adversarial-review --wait --cwd <worktree> --base <base> -- <focus>` (`<base>` = `origin/main`, or the same-branch commit declared before the run), with `2> <file>` so the stderr line carrying the thread id is kept. Never `--base main`, never without `--base`, never `--help` on that subcommand.
+5. Print the `Target:` line and the line count before anything else. Target not `branch diff against origin/main` (or the base declared before the run: a stacked branch's parent, or a same-branch commit): abort, discard unread, report.
 6. Write `codex resume <threadId>` into the session log immediately — from stderr `Thread ready (<id>)` or `node <script> status --cwd <worktree>`.
 7. Present every finding verbatim. Apply nothing.
 8. **STOP** in this exact shape and wait:
 
    ```
    CODEX REVIEW DONE — STOPPING
-   branch: <branch>   base: origin/main   reviewable lines (excl. docs/sessions/): <N>
+   branch: <branch>   base: origin/main   source / test lines (excl. docs/sessions/): <S> / <T>
    Target: <verbatim>   Verdict: <verbatim>   findings: <n>
    Resume in Codex: codex resume <threadId>   (written to docs/sessions/<log>.md)
    ```
