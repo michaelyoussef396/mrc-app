@@ -2983,6 +2983,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   const [customerInfoExpanded, setCustomerInfoExpanded] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [currentInspectionId, setCurrentInspectionId] = useState<string | null>(null);
+  // Holds the in-flight INSERT of this form's inspection. currentInspectionId is
+  // only readable a render later, so this is what concurrent saves coalesce on.
+  const pendingInspectionCreateRef = useRef<Promise<string> | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<InspectionFormData>({
@@ -3996,9 +3999,16 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // Read by the Complete flow so it never reports "Inspection Complete" on
   // top of a save that only exists on this device.
   const lastSaveFailedOfflineRef = useRef(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const handleSave = async (options?: { silent?: boolean }): Promise<string | null> => {
     if (!leadId || !user) return null;
+    // Reserve invocation order before awaiting; each call retains its own formData.
+    // The queue includes every child write and releases even when a save fails.
+    const previousSave = saveQueueRef.current;
+    let releaseSave!: () => void;
+    saveQueueRef.current = new Promise<void>((resolve) => { releaseSave = resolve; });
+    await previousSave;
     setIsSaving(true);
 
     try {
@@ -4201,7 +4211,18 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         updated_at: new Date().toISOString(),
       };
 
+      // currentInspectionId is React state read from this render's closure, and
+      // nothing above is awaited on the create path, so a save entered before the
+      // creating save's setState commits still reads null. Every such save used to
+      // take the INSERT branch and mint its own inspection; because each one then
+      // wrote its children against its own id, a single form split across rows —
+      // observed in production as areas on one inspection and the photos, AI
+      // summary and PDF on another. Await the create already in flight instead and
+      // update the row it resolves, so one form is ever only one inspection.
       let inspectionId = currentInspectionId;
+      if (!inspectionId && pendingInspectionCreateRef.current) {
+        inspectionId = await pendingInspectionCreateRef.current;
+      }
 
       if (inspectionId) {
         // UPDATE existing inspection
@@ -4211,13 +4232,30 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           .eq('id', inspectionId);
         if (updateError) throw updateError;
       } else {
-        // INSERT new inspection
-        const { data: insertData, error: insertError } = await supabase
-          .from('inspections')
-          .insert(inspectionRow)
-          .select('id, job_number')
-          .single();
-        if (insertError) throw insertError;
+        // INSERT new inspection. The promise is published to the ref before the
+        // first await, so a save re-entering on this same tick coalesces onto it.
+        // The query is wrapped rather than stored directly: awaiting a postgrest
+        // builder twice issues the request twice, which is the bug being fixed.
+        const createRequest = (async () => {
+          const { data, error } = await supabase
+            .from('inspections')
+            .insert(inspectionRow)
+            .select('id, job_number')
+            .single();
+          if (error) throw error;
+          return data;
+        })();
+        const createdId = createRequest.then((created) => created.id as string);
+        pendingInspectionCreateRef.current = createdId;
+        // A failed create must not strand later saves on a rejected promise —
+        // clear the latch so the next save retries the INSERT.
+        createdId.catch(() => {
+          if (pendingInspectionCreateRef.current === createdId) {
+            pendingInspectionCreateRef.current = null;
+          }
+        });
+
+        const insertData = await createRequest;
         inspectionId = insertData.id;
         setCurrentInspectionId(inspectionId);
         if (insertData.job_number) {
@@ -4537,6 +4575,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       return currentInspectionId;
     } finally {
       setIsSaving(false);
+      releaseSave();
     }
   };
 
