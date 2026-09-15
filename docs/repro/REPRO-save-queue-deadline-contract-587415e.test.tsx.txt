@@ -1,0 +1,193 @@
+// REPRO: Session 2 [save-race], contract test for L-S2 item (1). EXPECTED TO FAIL at candidate/2026-09-15-587415e.
+// Written 2026-09-15 by the save-race sub-agent (fable, max) in ~/mrc-verify, detached at 587415e.
+// Contract: with a hung first save and a second save queued, once PLAUSIBLE_DEADLINE_MS has passed,
+//   (1) the user sees one visible save failure, and (2) the next queued save issues its write.
+//   120 s is a test constant, NOT a ruled deadline; tighten it when L-S2 rules one.
+// Result at 587415e, Node v24.20.0, two runs plus CC's independent re-run, identical:
+//   AssertionError: expected [] to have a length of 1 but got +0  (the failure-toast assertion; (2) is never reached)
+// Stored as .txt so Vitest does not collect it. To run it: copy without these header lines to
+//   src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx
+// Referenced from docs/TODO.md, unit L-S2.
+// SCRATCH — Session 2 [save-race], L-S2 item (1) contract, EXPECTED TO FAIL at
+// tag candidate/2026-09-15-587415e. Michael's ruling: "S2 adds a per-save
+// timeout with a visible failure and the queue continues." No deadline value
+// and no failure wording has been ruled, so the test advances well past any
+// plausible deadline and accepts any non-success toast as the visible failure.
+// Harness copied from TechnicianInspectionForm.concurrentSave.test.tsx (the
+// original is untouched). Not for commit; the manager decides its fate.
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+type Gate = { promise: Promise<void>; open: () => void; fail: (reason: unknown) => void }
+type IssuedRequest = { table: string; methods: string[]; payload: Record<string, unknown> }
+
+const db = vi.hoisted(() => ({
+  requests: [] as Array<{ table: string; methods: string[]; payload: Record<string, unknown> }>,
+  areaRows: [] as Array<{ id: string; inspection_id: string }>,
+  inspectionInsertsIssued: 0,
+  firstInsertGate: { promise: Promise.resolve(), open: () => {}, fail: (_reason: unknown) => {} } as {
+    promise: Promise<void>; open: () => void; fail: (reason: unknown) => void
+  },
+}))
+
+vi.mock('@/integrations/supabase/client', () => {
+  const LEAD = {
+    id: 'lead-1', full_name: 'Test Customer', phone: '0400000000',
+    email: 'customer@example.com', property_address_street: '1 Test Street',
+    property_address_suburb: 'Coburg', property_address_state: 'VIC',
+    property_address_postcode: '3058', property_lat: null, property_lng: null,
+    issue_description: 'Mould in bathroom', internal_notes: null, status: 'inspection_booked',
+  }
+
+  const buildQuery = (table: string) => {
+    const methods: string[] = []
+    let payload: Record<string, unknown> = {}
+    let inIds: string[] = []
+
+    const record =
+      (method: string) =>
+      (...args: unknown[]) => {
+        methods.push(method)
+        if (method === 'insert' || method === 'update') payload = (args[0] ?? {}) as Record<string, unknown>
+        if (method === 'in') inIds = (args[1] ?? []) as string[]
+        return query
+      }
+
+    const resolve = async (): Promise<{ data: unknown; error: null }> => {
+      // Recorded synchronously at await time, before any gate — "issued".
+      db.requests.push({ table, methods: [...methods], payload })
+      if (table === 'inspections' && methods.includes('insert')) {
+        db.inspectionInsertsIssued += 1
+        if (db.inspectionInsertsIssued === 1) await db.firstInsertGate.promise
+        return { data: { id: 'inspection-1', job_number: 'JOB-1' }, error: null }
+      }
+      if (table === 'inspection_areas') {
+        if (methods.includes('delete')) {
+          db.areaRows = db.areaRows.filter((r) => !inIds.includes(r.id))
+          return { data: null, error: null }
+        }
+        if (methods.includes('insert')) {
+          db.areaRows.push({ id: payload.id as string, inspection_id: payload.inspection_id as string })
+          return { data: null, error: null }
+        }
+        if (methods.includes('update')) return { data: null, error: null }
+        return { data: db.areaRows.map((r) => ({ id: r.id })), error: null }
+      }
+      if (table === 'leads') return { data: LEAD, error: null }
+      if (table === 'subfloor_data' && methods.includes('insert')) {
+        return { data: { id: 'subfloor-1' }, error: null }
+      }
+      const isSingle = methods.includes('single') || methods.includes('maybeSingle')
+      return { data: isSingle ? null : [], error: null }
+    }
+
+    const query: Record<string, unknown> = {
+      then: (ok: (v: unknown) => unknown, err?: (e: unknown) => unknown) => resolve().then(ok, err),
+    }
+    for (const m of [
+      'select', 'insert', 'update', 'upsert', 'delete', 'eq', 'neq', 'is', 'in',
+      'not', 'or', 'gte', 'lte', 'order', 'limit', 'range', 'single', 'maybeSingle',
+    ]) query[m] = record(m)
+    return query
+  }
+
+  return {
+    supabase: {
+      from: (t: string) => buildQuery(t),
+      auth: { getSession: () => Promise.resolve({ data: { session: null } }) },
+    },
+  }
+})
+
+const stable = vi.hoisted(() => ({
+  toast: vi.fn(),
+  auth: { user: { id: 'tech-1' }, profile: { full_name: 'Test Tech' } },
+}))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => stable.auth }))
+vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: stable.toast }), toast: stable.toast }))
+vi.mock('@/lib/utils/photoUpload', () => ({
+  uploadInspectionPhoto: vi.fn(), deleteInspectionPhoto: vi.fn(),
+  loadInspectionPhotos: vi.fn().mockResolvedValue([]),
+}))
+
+import TechnicianInspectionForm from '../TechnicianInspectionForm'
+
+// No deadline has been ruled for L-S2 (1); 120 s is well past any plausible one
+// and past the 30 s auto-save tick several times over.
+const PLAUSIBLE_DEADLINE_MS = 120_000
+const AREA_NAME_PLACEHOLDER = 'e.g., Master Bedroom, Kitchen...'
+const WRITE_METHODS = new Set(['insert', 'update', 'upsert', 'delete'])
+// Every toast title the tag raises on a successful path in this harness.
+const SUCCESS_TOAST_TITLES = new Set(['Saved', 'Auto-saved', 'Area added'])
+
+const makeGate = (): Gate => {
+  let open!: () => void
+  let fail!: (reason: unknown) => void
+  const promise = new Promise<void>((resolve, reject) => { open = resolve; fail = reject })
+  promise.catch(() => {})
+  return { promise, open, fail }
+}
+
+beforeEach(() => {
+  stable.toast.mockClear()
+  localStorage.clear()
+  db.requests = []
+  db.areaRows = []
+  db.inspectionInsertsIssued = 0
+  db.firstInsertGate = makeGate()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+const isWrite = (r: IssuedRequest) => r.methods.some((m) => WRITE_METHODS.has(m))
+const writesTo = (table: string) => db.requests.filter((r) => r.table === table && isWrite(r))
+const failureToasts = () => stable.toast.mock.calls.filter(([value]) => !SUCCESS_TOAST_TITLES.has(value.title))
+
+async function renderAreaForm() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/technician/inspection?leadId=lead-1']}>
+        <TechnicianInspectionForm />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  const header = await screen.findByRole('banner')
+  const saveButton = within(header).getAllByRole('button')[1]
+
+  await act(async () => { screen.getByRole('button', { name: /Next Section/ }).click() })
+  await act(async () => { screen.getByRole('button', { name: /Next Section/ }).click() })
+  await screen.findByRole('button', { name: /Add Another Area/ })
+  return saveButton
+}
+
+async function typeAreaName(name: string) {
+  await act(async () => {
+    fireEvent.change(screen.getByPlaceholderText(AREA_NAME_PLACEHOLDER), { target: { value: name } })
+  })
+}
+
+describe('L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e', () => {
+  it('after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const saveButton = await renderAreaForm()
+    await typeAreaName('first')
+    await act(async () => { saveButton.click() })
+    await waitFor(() => expect(writesTo('inspections')).toHaveLength(1))
+    await typeAreaName('second')
+    await act(async () => { saveButton.click() })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(PLAUSIBLE_DEADLINE_MS) })
+
+    // (1) a visible failure: any toast that is not a success toast
+    expect(failureToasts()).toHaveLength(1)
+    // (2) the queue continued: the second save issued its own inspections write
+    expect(writesTo('inspections')).toHaveLength(2)
+  })
+})

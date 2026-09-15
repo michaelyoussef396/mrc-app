@@ -1,0 +1,161 @@
+Session 2 [save-race] verbatim run output at candidate/2026-09-15-587415e, Node v24.20.0, 2026-09-15.
+Run 1 of the characterization file (8/10, both Complete tests failed on a harness gap later fixed) is not included.
+
+===== 01-sanity-concurrentSave =====
+
+ RUN  v3.2.4 /Users/michaelyoussef/mrc-verify
+
+stderr | src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx > handleSave re-entrancy during the create window > should insert exactly one inspection when three saves are dispatched before the first resolves
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stdout | src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx > stale-snapshot delete across saves > CREATE keeps the area added between two saves
+DIAG inserts=1 areaSelects=2 persistedAfterB=0 finalRows=2
+DIAG insertOrder=[
+  [32m'db011be6-d82f-4460-b216-c4121d216b2d'[39m,
+  [32m'3997ca9e-acb2-4323-9853-0a2bc7a27830'[39m,
+  [length]: [33m2[39m
+]
+DIAG deleted=[ [length]: [33m0[39m ]
+DIAG survivors=[
+  [32m'db011be6-d82f-4460-b216-c4121d216b2d'[39m,
+  [32m'3997ca9e-acb2-4323-9853-0a2bc7a27830'[39m,
+  [length]: [33m2[39m
+]
+DIAG deleted-is-the-newly-added-area=false
+
+stdout | src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx > stale-snapshot delete across saves > UPDATE keeps the area added between two saves
+DIAG inserts=1 areaSelects=2 persistedAfterB=1 finalRows=2
+DIAG insertOrder=[
+  [32m'516bd674-4084-4aac-81b4-69a3696999c2'[39m,
+  [32m'aa6a0df0-0c41-4d6c-a297-308976cf3a99'[39m,
+  [length]: [33m2[39m
+]
+DIAG deleted=[ [length]: [33m0[39m ]
+DIAG survivors=[
+  [32m'516bd674-4084-4aac-81b4-69a3696999c2'[39m,
+  [32m'aa6a0df0-0c41-4d6c-a297-308976cf3a99'[39m,
+  [length]: [33m2[39m
+]
+DIAG deleted-is-the-newly-added-area=false
+
+ ✓ src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx (4 tests) 648ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:00:49
+   Duration  1.60s (transform 183ms, setup 49ms, collect 387ms, tests 648ms, environment 333ms, prepare 43ms)
+
+
+===== 03-contract-run1 =====
+
+ RUN  v3.2.4 /Users/michaelyoussef/mrc-verify
+
+stderr | src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx > L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e > after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ❯ src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx (1 test | 1 failed) 152ms
+   × L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e > after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs 152ms
+     → expected [] to have a length of 1 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx > L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e > after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs
+AssertionError: expected [] to have a length of 1 but got +0
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx:179:29
+    177| 
+    178|     // (1) a visible failure: any toast that is not a success toast
+    179|     expect(failureToasts()).toHaveLength(1)
+       |                             ^
+    180|     // (2) the queue continued: the second save issued its own inspect…
+    181|     expect(writesTo('inspections')).toHaveLength(2)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  19:14:01
+   Duration  1.10s (transform 177ms, setup 42ms, collect 379ms, tests 152ms, environment 293ms, prepare 36ms)
+
+
+===== 04-characterization-run2 =====
+
+ RUN  v3.2.4 /Users/michaelyoussef/mrc-verify
+
+stderr | src/pages/__tests__/TechnicianInspectionForm.saveQueueHang.race.scratch.test.tsx > S-Q1: the first save request never settles (CREATE path, inspections INSERT held) > (a) a second Save issues no database request while the first save is unsettled
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/__tests__/TechnicianInspectionForm.saveQueueHang.race.scratch.test.tsx (10 tests) 1593ms
+   ✓ S-Q1: the first save request never settles (CREATE path, inspections INSERT held) > (c) Complete issues no lead-status write and no database write while the first save is unsettled  309ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  19:14:19
+   Duration  2.41s (transform 169ms, setup 42ms, collect 359ms, tests 1.59s, environment 261ms, prepare 28ms)
+
+
+===== 05-characterization-run3 =====
+
+ RUN  v3.2.4 /Users/michaelyoussef/mrc-verify
+
+stderr | src/pages/__tests__/TechnicianInspectionForm.saveQueueHang.race.scratch.test.tsx > S-Q1: the first save request never settles (CREATE path, inspections INSERT held) > (a) a second Save issues no database request while the first save is unsettled
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/__tests__/TechnicianInspectionForm.saveQueueHang.race.scratch.test.tsx (10 tests) 1577ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  19:15:10
+   Duration  2.49s (transform 176ms, setup 42ms, collect 356ms, tests 1.58s, environment 255ms, prepare 38ms)
+
+
+===== 06-contract-run2 =====
+
+ RUN  v3.2.4 /Users/michaelyoussef/mrc-verify
+
+stderr | src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx > L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e > after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ❯ src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx (1 test | 1 failed) 155ms
+   × L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e > after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs 154ms
+     → expected [] to have a length of 1 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx > L-S2 item (1) contract — EXPECTED TO FAIL at candidate/2026-09-15-587415e > after a hung save passes a plausible deadline the user sees a visible save failure and the next queued save runs
+AssertionError: expected [] to have a length of 1 but got +0
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ src/pages/__tests__/TechnicianInspectionForm.saveQueueDeadline.contract.race.scratch.test.tsx:179:29
+    177| 
+    178|     // (1) a visible failure: any toast that is not a success toast
+    179|     expect(failureToasts()).toHaveLength(1)
+       |                             ^
+    180|     // (2) the queue continued: the second save issued its own inspect…
+    181|     expect(writesTo('inspections')).toHaveLength(2)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  19:15:13
+   Duration  763ms (transform 165ms, setup 24ms, collect 284ms, tests 155ms, environment 159ms, prepare 37ms)
+

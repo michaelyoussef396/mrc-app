@@ -1,0 +1,408 @@
+// REPRO: Session 2 [save-race], S-Q1 never-settles case. Characterization of candidate/2026-09-15-587415e.
+// Written 2026-09-15 by the save-race sub-agent (fable, max) in ~/mrc-verify, detached at 587415e.
+// Harness copied from src/pages/__tests__/TechnicianInspectionForm.concurrentSave.test.tsx; the original was untouched.
+// Result at 587415e, Node v24.20.0: 10 passed (10) on two consecutive runs, confirmed by CC's independent re-run.
+// Stored as .txt so Vitest does not collect it. To run it: copy this file without these header lines to
+//   src/pages/__tests__/TechnicianInspectionForm.saveQueueHang.race.scratch.test.tsx
+// and run that single file with the dummy env inline, as AGENTS.md describes.
+// What it pins at 587415e while the first save's request never settles:
+//   (a) no further database request from a second Save;
+//   (b) the 30 s auto-save skips rather than queues;
+//   (c) Complete neither writes nor advances lead status;
+//   (d) the footer reads "Saving..." (disabled) while the header Save stays enabled;
+//   (e) resolving the request drains the queue in order onto one inspection id;
+//   (f) rejecting it does not wedge the queue.
+// Referenced from docs/TODO.md, unit L-S2.
+// SCRATCH — Session 2 [save-race], S-Q1 at tag candidate/2026-09-15-587415e.
+// Characterization of unit S's save queue (saveQueueRef, TechnicianInspectionForm
+// :4002-4011 / :4576-4579) when the first save's database request never settles.
+// Harness copied from TechnicianInspectionForm.concurrentSave.test.tsx; the
+// original is untouched. The stateful supabase mock gains:
+//   - db.requests: every query recorded at await time, i.e. the moment
+//     postgrest-js would fire fetch ("issued"), independent of settling;
+//   - db.firstInsertGate: the FIRST inspections INSERT awaits a gate the test
+//     opens (resolve) or fails (reject) — or never touches ("never settles");
+//   - db.nextUpdateGate: optional gate on the next inspections UPDATE, for the
+//     UPDATE-path variant.
+// Not for commit; the manager decides its fate.
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+type Gate = { promise: Promise<void>; open: () => void; fail: (reason: unknown) => void }
+type IssuedRequest = { table: string; methods: string[]; eqId: unknown; payload: Record<string, unknown> }
+
+const db = vi.hoisted(() => ({
+  requests: [] as Array<{ table: string; methods: string[]; eqId: unknown; payload: Record<string, unknown> }>,
+  areaRows: [] as Array<{ id: string; inspection_id: string }>,
+  inspectionInsertsIssued: 0,
+  firstInsertGate: { promise: Promise.resolve(), open: () => {}, fail: (_reason: unknown) => {} } as {
+    promise: Promise<void>; open: () => void; fail: (reason: unknown) => void
+  },
+  nextUpdateGate: null as null | { promise: Promise<void>; open: () => void; fail: (reason: unknown) => void },
+}))
+
+vi.mock('@/integrations/supabase/client', () => {
+  const LEAD = {
+    id: 'lead-1', full_name: 'Test Customer', phone: '0400000000',
+    email: 'customer@example.com', property_address_street: '1 Test Street',
+    property_address_suburb: 'Coburg', property_address_state: 'VIC',
+    property_address_postcode: '3058', property_lat: null, property_lng: null,
+    issue_description: 'Mould in bathroom', internal_notes: null, status: 'inspection_booked',
+  }
+
+  const buildQuery = (table: string) => {
+    const methods: string[] = []
+    let payload: Record<string, unknown> = {}
+    let inIds: string[] = []
+    let eqId: unknown
+    let columns = ''
+
+    const record =
+      (method: string) =>
+      (...args: unknown[]) => {
+        methods.push(method)
+        if (method === 'insert' || method === 'update') payload = (args[0] ?? {}) as Record<string, unknown>
+        if (method === 'select') columns = String(args[0])
+        if (method === 'in') inIds = (args[1] ?? []) as string[]
+        if (method === 'eq' && args[0] === 'id') eqId = args[1]
+        return query
+      }
+
+    const resolve = async (): Promise<{ data: unknown; error: null }> => {
+      // Recorded synchronously at await time, before any gate — "issued".
+      db.requests.push({ table, methods: [...methods], eqId, payload })
+      if (table === 'inspections' && methods.includes('insert')) {
+        db.inspectionInsertsIssued += 1
+        if (db.inspectionInsertsIssued === 1) await db.firstInsertGate.promise
+        return { data: { id: 'inspection-1', job_number: 'JOB-1' }, error: null }
+      }
+      if (table === 'inspections' && methods.includes('update')) {
+        const gate = db.nextUpdateGate
+        if (gate) {
+          db.nextUpdateGate = null
+          await gate.promise
+        }
+        return { data: null, error: null }
+      }
+      if (table === 'inspection_areas') {
+        if (methods.includes('delete')) {
+          db.areaRows = db.areaRows.filter((r) => !inIds.includes(r.id))
+          return { data: null, error: null }
+        }
+        if (methods.includes('insert')) {
+          db.areaRows.push({ id: payload.id as string, inspection_id: payload.inspection_id as string })
+          return { data: null, error: null }
+        }
+        if (methods.includes('update')) return { data: null, error: null }
+        void columns
+        return { data: db.areaRows.map((r) => ({ id: r.id })), error: null }
+      }
+      if (table === 'leads') return { data: LEAD, error: null }
+      if (table === 'subfloor_data' && methods.includes('insert')) {
+        return { data: { id: 'subfloor-1' }, error: null }
+      }
+      const isSingle = methods.includes('single') || methods.includes('maybeSingle')
+      return { data: isSingle ? null : [], error: null }
+    }
+
+    const query: Record<string, unknown> = {
+      then: (ok: (v: unknown) => unknown, err?: (e: unknown) => unknown) => resolve().then(ok, err),
+    }
+    for (const m of [
+      'select', 'insert', 'update', 'upsert', 'delete', 'eq', 'neq', 'is', 'in',
+      'not', 'or', 'gte', 'lte', 'order', 'limit', 'range', 'single', 'maybeSingle',
+    ]) query[m] = record(m)
+    return query
+  }
+
+  return {
+    supabase: {
+      from: (t: string) => buildQuery(t),
+      auth: { getSession: () => Promise.resolve({ data: { session: null } }) },
+    },
+  }
+})
+
+const stable = vi.hoisted(() => ({
+  toast: vi.fn(),
+  auth: { user: { id: 'tech-1' }, profile: { full_name: 'Test Tech' } },
+}))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => stable.auth }))
+vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: stable.toast }), toast: stable.toast }))
+vi.mock('@/lib/utils/photoUpload', () => ({
+  uploadInspectionPhoto: vi.fn(), deleteInspectionPhoto: vi.fn(),
+  loadInspectionPhotos: vi.fn().mockResolvedValue([]),
+}))
+
+import TechnicianInspectionForm from '../TechnicianInspectionForm'
+
+const AUTO_SAVE_INTERVAL_MS = 30_000
+const AREA_NAME_PLACEHOLDER = 'e.g., Master Bedroom, Kitchen...'
+const HOURS_PLACEHOLDER = 'Enter hours'
+const WRITE_METHODS = new Set(['insert', 'update', 'upsert', 'delete'])
+
+// The Complete flow calls fetch() directly for the AI Edge Function; keep that
+// off the network. Resolves ok so Complete proceeds to the lead-status write.
+const fetchStub = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }))
+
+const makeGate = (): Gate => {
+  let open!: () => void
+  let fail!: (reason: unknown) => void
+  const promise = new Promise<void>((resolve, reject) => { open = resolve; fail = reject })
+  // A gate failed before the mock awaits it must not surface as an unhandled rejection.
+  promise.catch(() => {})
+  return { promise, open, fail }
+}
+
+beforeEach(() => {
+  stable.toast.mockClear()
+  fetchStub.mockClear()
+  vi.stubGlobal('fetch', fetchStub)
+  localStorage.clear()
+  db.requests = []
+  db.areaRows = []
+  db.inspectionInsertsIssued = 0
+  db.firstInsertGate = makeGate()
+  db.nextUpdateGate = null
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
+const isWrite = (r: IssuedRequest) => r.methods.some((m) => WRITE_METHODS.has(m))
+const writes = () => db.requests.filter(isWrite)
+const writesTo = (table: string) => writes().filter((r) => r.table === table)
+const writeMethod = (r: IssuedRequest) => r.methods.find((m) => WRITE_METHODS.has(m))
+const toastsTitled = (title: string) => stable.toast.mock.calls.filter(([value]) => value.title === title)
+const savedCount = () => toastsTitled('Saved').length
+const leadStatusWrites = () => db.requests.filter((r) => r.table === 'leads' && r.methods.includes('update'))
+
+async function renderAreaForm() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/technician/inspection?leadId=lead-1']}>
+        <TechnicianInspectionForm />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  const header = await screen.findByRole('banner')
+  const saveButton = within(header).getAllByRole('button')[1]
+
+  // Reach Section 3, where areas can be added. handleAddArea does not set
+  // hasUnsavedChanges and the mount fetch never does either, so navigating
+  // fires no save of its own.
+  await act(async () => { screen.getByRole('button', { name: /Next Section/ }).click() })
+  await act(async () => { screen.getByRole('button', { name: /Next Section/ }).click() })
+  await screen.findByRole('button', { name: /Add Another Area/ })
+  return saveButton
+}
+
+async function click(element: HTMLElement) {
+  await act(async () => { element.click() })
+}
+
+async function typeAreaName(name: string) {
+  await act(async () => {
+    fireEvent.change(screen.getByPlaceholderText(AREA_NAME_PLACEHOLDER), { target: { value: name } })
+  })
+}
+
+async function typeAreaHours(hours: string) {
+  await act(async () => {
+    fireEvent.change(screen.getAllByPlaceholderText(HOURS_PLACEHOLDER)[0], { target: { value: hours } })
+  })
+}
+
+// Let every pending microtask and short timer run. Under fake timers the
+// timer is advanced; under real timers it is waited out.
+async function flush(ms = 50) {
+  await act(async () => {
+    if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(ms)
+    else await new Promise((r) => setTimeout(r, ms))
+  })
+}
+
+// Dispatch the first save and wait until its INSERT has been issued (and is
+// now parked on the gate).
+async function startHungFirstSave(saveButton: HTMLElement) {
+  await typeAreaName('first')
+  await click(saveButton)
+  await waitFor(() => expect(writesTo('inspections')).toHaveLength(1))
+  expect(writeMethod(writesTo('inspections')[0])).toBe('insert')
+}
+
+// Sections 4-9 with the answers validateInspectionCompletion and the B6/waste
+// gates need: subfloor "No", one treatment method, hours already > 0 from
+// Section 3. Every "Next Section" click also enqueues a save (handleNext),
+// which is the production shape of a tech walking the form.
+async function walkToLastSectionWithValidAnswers() {
+  const next = () => click(screen.getByRole('button', { name: /Next Section/ }))
+  await next() // Section 4
+  await click(screen.getByRole('button', { name: /^No$/ }))
+  await next() // Section 5
+  await next() // Section 6
+  await next() // Section 7
+  // The method list only renders once a treatment option is chosen (:2082).
+  await click(screen.getByRole('button', { name: /Option 1/ }))
+  const methodRow = screen.getByText('HEPA Vacuuming').parentElement as HTMLElement
+  await click(within(methodRow).getByRole('button'))
+  await next() // Section 8
+  await next() // Section 9
+  await screen.findByRole('button', { name: /^Complete$/ })
+}
+
+describe('S-Q1: the first save request never settles (CREATE path, inspections INSERT held)', () => {
+  it('(a) a second Save issues no database request while the first save is unsettled', async () => {
+    const saveButton = await renderAreaForm()
+    await startHungFirstSave(saveButton)
+    const issuedBeforeSecondSave = db.requests.length
+
+    await typeAreaName('second')
+    await click(saveButton)
+    await flush()
+
+    expect(writes()).toHaveLength(1)
+    expect(db.requests).toHaveLength(issuedBeforeSecondSave)
+  })
+
+  it('(a, UPDATE path) a second Save issues no database request while an UPDATE-path save is unsettled', async () => {
+    const saveButton = await renderAreaForm()
+    db.firstInsertGate.open()
+    await typeAreaName('first')
+    await click(saveButton)
+    await waitFor(() => expect(savedCount()).toBe(1))
+    db.requests = []
+    db.nextUpdateGate = makeGate()
+
+    await typeAreaName('second')
+    await click(saveButton)
+    await waitFor(() => expect(writesTo('inspections')).toHaveLength(1))
+    expect(writeMethod(writesTo('inspections')[0])).toBe('update')
+    const issuedBeforeThirdSave = db.requests.length
+
+    await typeAreaName('third')
+    await click(saveButton)
+    await flush()
+
+    expect(db.requests).toHaveLength(issuedBeforeThirdSave)
+  })
+
+  it('(b) the 30 s auto-save issues no database request while the first save is unsettled', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const saveButton = await renderAreaForm()
+    await startHungFirstSave(saveButton)
+    const issuedDuringHang = db.requests.length
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_SAVE_INTERVAL_MS * 3) })
+
+    expect(toastsTitled('Auto-saved')).toHaveLength(0)
+    expect(db.requests).toHaveLength(issuedDuringHang)
+  })
+
+  it('(b, control) with no save in flight the 30 s auto-save does write — proves the fake-timer wiring', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await renderAreaForm()
+    db.firstInsertGate.open()
+    await typeAreaName('first')
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_SAVE_INTERVAL_MS) })
+
+    await waitFor(() => expect(toastsTitled('Auto-saved')).toHaveLength(1))
+    expect(writesTo('inspections')).toHaveLength(1)
+  })
+
+  it('(c) Complete issues no lead-status write and no database write while the first save is unsettled', async () => {
+    const saveButton = await renderAreaForm()
+    await typeAreaHours('2')
+    await startHungFirstSave(saveButton)
+    await walkToLastSectionWithValidAnswers()
+
+    await click(screen.getByRole('button', { name: /^Complete$/ }))
+    await flush()
+
+    expect(screen.queryByText('Missing Required Fields')).toBeNull()
+    expect(screen.getByText('Generating AI Summary')).toBeInTheDocument()
+    expect(leadStatusWrites()).toHaveLength(0)
+    expect(fetchStub).not.toHaveBeenCalled()
+    expect(writes()).toHaveLength(1)
+  })
+
+  it('(c, release) opening the held request lets the parked Complete advance the lead status on the one inspection', async () => {
+    const saveButton = await renderAreaForm()
+    await typeAreaHours('2')
+    await startHungFirstSave(saveButton)
+    await walkToLastSectionWithValidAnswers()
+    await click(screen.getByRole('button', { name: /^Complete$/ }))
+    await flush()
+    expect(leadStatusWrites()).toHaveLength(0)
+
+    db.firstInsertGate.open()
+
+    await waitFor(() => expect(toastsTitled('Inspection Complete')).toHaveLength(1), { timeout: 3000 })
+    expect(leadStatusWrites().map((r) => r.payload)).toEqual([{ status: 'inspection_ai_summary' }])
+    expect(db.inspectionInsertsIssued).toBe(1)
+  })
+
+  it('(d) during the hang the footer reads "Saving..." with its button disabled and no toast is raised', async () => {
+    const saveButton = await renderAreaForm()
+    await startHungFirstSave(saveButton)
+    await flush()
+
+    const footerButton = screen.getByRole('button', { name: /Saving\.\.\./ })
+    expect(footerButton).toBeDisabled()
+    expect(footerButton.textContent).toBe('Saving...')
+    expect(stable.toast).not.toHaveBeenCalled()
+  })
+
+  it('(d, header) the header Save button stays enabled during the hang', async () => {
+    const saveButton = await renderAreaForm()
+    await startHungFirstSave(saveButton)
+    await flush()
+
+    expect(saveButton).toBeEnabled()
+  })
+
+  it('(e) resolving the held request drains the queued saves in dispatch order onto one inspection id', async () => {
+    const saveButton = await renderAreaForm()
+    for (const name of ['first', 'second', 'third']) {
+      await typeAreaName(name)
+      await click(saveButton)
+    }
+    await flush()
+    expect(writes()).toHaveLength(1)
+
+    db.firstInsertGate.open()
+    await waitFor(() => expect(savedCount()).toBe(3))
+
+    expect(db.inspectionInsertsIssued).toBe(1)
+    expect(writesTo('inspections').map(writeMethod)).toEqual(['insert', 'update', 'update'])
+    expect(writesTo('inspections').slice(1).map((r) => r.eqId)).toEqual(['inspection-1', 'inspection-1'])
+    const areaWrites = writesTo('inspection_areas')
+    expect(areaWrites.map((r) => r.payload.area_name)).toEqual(['first', 'second', 'third'])
+    expect(new Set(areaWrites.map((r) => r.payload.inspection_id))).toEqual(new Set(['inspection-1']))
+  })
+
+  it('(f) rejecting the held request does not wedge the queue: the next save runs and writes', async () => {
+    const saveButton = await renderAreaForm()
+    await startHungFirstSave(saveButton)
+    await typeAreaName('second')
+    await click(saveButton)
+    await flush()
+
+    db.firstInsertGate.fail(new Error('simulated: request rejected'))
+
+    await waitFor(() => expect(toastsTitled('Save Failed')).toHaveLength(1))
+    expect(toastsTitled('Save Failed')[0][0].description).toBe('simulated: request rejected')
+    await waitFor(() => expect(savedCount()).toBe(1))
+    expect(db.inspectionInsertsIssued).toBe(2)
+    expect(writesTo('inspection_areas').map((r) => [r.payload.inspection_id, r.payload.area_name]))
+      .toEqual([['inspection-1', 'second']])
+  })
+})
