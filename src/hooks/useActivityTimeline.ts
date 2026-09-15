@@ -94,7 +94,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
       // Build queries in parallel
       let activitiesQuery = supabase
         .from('activities')
-        .select('id, activity_type, title, description, metadata, created_at, lead_id, user_id, leads(full_name, lead_number, lead_source, created_by)')
+        .select('id, activity_type, title, description, metadata, created_at, lead_id, user_id, leads(full_name, lead_number)')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -146,17 +146,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
       if (activitiesRes.data) {
         for (const a of activitiesRes.data) {
           const icon = getActivityIcon(a.activity_type);
-          const lead = a.leads as unknown as { full_name: string | null; lead_number: string | null; lead_source: string | null; created_by: string | null } | null;
-          let actorName = 'Actor not recorded';
-          if (a.user_id) {
-            actorName = profileMap.get(a.user_id)?.trim() || 'User (name unavailable)';
-          } else if (a.activity_type === 'lead_created' && lead?.lead_source === 'website' && lead.created_by === null) {
-            // Acquisition source identifies creation only, never later actions.
-            actorName = 'Website';
-          } else if (['invoice_overdue', 'invoice_milestone'].includes(a.activity_type)) {
-            // These activity types are emitted by check-overdue-invoices automation.
-            actorName = 'System';
-          }
+          const lead = a.leads as unknown as { full_name: string | null; lead_number: string | null } | null;
           events.push({
             id: `activity-${a.id}`,
             source: 'activity',
@@ -168,7 +158,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             leadId: a.lead_id,
             leadName: lead?.full_name || null,
             leadNumber: lead?.lead_number || null,
-            actorName,
+            actorName: a.user_id ? (profileMap.get(a.user_id) || null) : null,
             timestamp: a.created_at,
             metadata: a.metadata as Record<string, unknown> | undefined,
           });

@@ -237,7 +237,6 @@ export function ActivityTimeline({
         const priorityBadge =
           event.source === 'notification' ? getPriorityBadge(event.priority) : null;
         const isLast = index === events.length - 1;
-        const actorName = event.actorName?.trim() || 'Actor not recorded';
 
         if (compact) {
           // Notification events carrying an action_url become clickable rows —
@@ -291,7 +290,6 @@ export function ActivityTimeline({
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span>{formatRelativeTime(event.timestamp)}</span>
-                  <span>— {actorName}</span>
                   {showLeadName && event.leadName && (
                     <>
                       <span>-</span>
@@ -384,7 +382,9 @@ export function ActivityTimeline({
               <p className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatDateTimeAU(event.timestamp)}
-                <span className="text-gray-500"> — {actorName}</span>
+                {event.actorName && (
+                  <span className="text-gray-500"> — {event.actorName}</span>
+                )}
               </p>
             </div>
           </div>
