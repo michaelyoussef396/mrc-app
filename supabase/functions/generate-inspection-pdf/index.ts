@@ -2386,16 +2386,19 @@ Deno.serve(async (req) => {
         inspection_id: inspectionId,
         version_number: newVersion,
         created_by: callerId,
-        // Anything outside 'hard_save' / 'manual_upload_fallback' still renders
-        // as the "Legacy" badge, so naming the writer costs nothing visually.
-        generation_type: 'legacy_ef',
+        // This EF renders/stores HTML; use the permitted legacy writer provenance.
+        generation_type: 'legacy_ef_render',
         pdf_url: reportUrl,
         file_size_bytes: new TextEncoder().encode(populatedHtml).length,
         changes_made: regenerate ? { type: 'regeneration', timestamp: new Date().toISOString() } : null
       })
 
     if (versionError) {
-      console.error('Failed to log version:', versionError)
+      console.error('[generate-inspection-pdf] Failed to save pdf_versions row', {
+        code: versionError.code,
+        inspectionId,
+        version: newVersion,
+      })
     }
 
     console.log(`PDF generated successfully: ${reportUrl}`)
@@ -2406,6 +2409,13 @@ Deno.serve(async (req) => {
         pdfUrl: reportUrl,
         version: newVersion,
         inspectionId,
+        // Report delivery succeeded even when its audit row could not be saved.
+        versionHistorySaved: !versionError,
+        ...(versionError ? { warning: {
+          code: 'PDF_VERSION_HISTORY_SAVE_FAILED',
+          databaseCode: versionError.code,
+          message: 'Report generated, but version history could not be saved.',
+        } } : {}),
         generatedAt: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
