@@ -90,6 +90,9 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - `codex resume 01a0b2d0-0338-7001-8841-7b28c99da302` — adversarial review, declared base `599a52c`,
   covering both commits `3c44225` and `090c73b`. Written the moment `Thread ready` printed on stderr.
   Turn id `01a0b2d0-03c2-7cb2-9fde-d367904b7df1`.
+- `codex resume 01a0b2e5-10df-7a51-ae15-81a09219838c` — ROUND 2, same declared base `599a52c`, covering
+  `3c44225`, `090c73b` and the triage commit `6d24242`. Written the moment `Thread ready` printed.
+  Turn id `01a0b2e5-1172-7cb1-8288-dd66db5f597d`.
 
 ## Review
 
@@ -134,7 +137,7 @@ against `599a52c`. The commits stay separate in history. A second pass scoped to
 
   The focus was single-quoted and survived intact — it contains no `;` and no apostrophe, so zsh
   could not truncate it into a partial review that still returns a clean verdict.
-- codex-review-log row: **pending** Michael's triage (CLAUDE.md step 9).
+- codex-review-log row: **written** — two rows, rounds 1 and 2, at `docs/codex-review-log.md`. Round 1 records acted=1 (Michael ruled FIX); round 2 leaves the disposition columns blank because one round was authorised and its triage had not run.
 
 ### Finding, verbatim — nothing applied
 
@@ -397,7 +400,7 @@ against the normalised baseline set.
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers; never quote the marker lines elsewhere in this log -->
 
 - No Stop hook maintains this file (the session is rooted in `~/mrc-integration`), so this block is filled by hand.
-- Next command: none. Michael triages the findings, then the ledger rows and the PR.
+- Next command: none. Round 2 triage is with Michael; then the PR. Nothing is pushed.
 - Uncommitted files: none after this commit.
 - Untested: the migration against a live database — static only, by instruction. Also the new relative import, which no tsconfig and no test covers: run `deno check` on the function before deploying.
 <!-- resume:end -->
@@ -459,3 +462,49 @@ breaks both files, not just the check.
 `docs/TODO.md` L-E2 row now carries the sibling DETAIL leak in `send-inspection-reminder/index.ts:257-266`
 (which logs `error.details` **and** the recipient address) and `receive-framer-lead/index.ts:924-928`,
 both frozen paths; plus the per-episode note and the still-open timeline half of E-Q3.
+
+### Codex ROUND 2 — approved by Michael as one round. Nothing applied.
+
+- Declared base, stated before the run: **`599a52c`** — unchanged from round 1, as instructed.
+- Target, verbatim: **`Target: branch diff against 599a52c`** — matches. Checked before reading findings.
+- Verdict, verbatim: **`Verdict: needs-attention`**
+- Hold line, verbatim: `Hold: the cap flag can duplicate an episode after reordered reads and
+  suppress recovery after a failed report. The dedupe key, two strengthened assertions, A4,
+  suppression payload and 429 behavior look correct. Static review; tests were not executed.`
+- Findings: **2** (two medium). Round 1's medium is confirmed addressed; both new findings are
+  against the *replacement* mechanism, not the original defect.
+- Range: mechanical source **292** / test **110**; non-comment source **128** (EF 47 + SQL 79 + TODO 2)
+  / test **96**. Changed files **5**, so self-collect again.
+- `codex resume 01a0b2e5-10df-7a51-ae15-81a09219838c`
+
+#### Findings, verbatim
+
+> - [medium] A stale under-cap response rearms an already reported episode (supabase/functions/send-email/index.ts:277-278)
+>   Count queries overlap, so this reset can overwrite state established by a newer result. Reproducing test: defer request A's count=99 response; let an already admitted send raise the count to 100; complete B's count=100 query and its report; release A's stale response; then complete C with count=100. Assert one report for the uninterrupted cap episode: the current control flow produces two. The existing tests await requests sequentially and cannot expose this ordering.
+>   Recommendation: Serialize count reads with their episode-state transitions, or prevent stale observations from overwriting newer state. Add a deferred-response regression.
+> - [medium] Failed report delivery leaves the episode marked as reported (supabase/functions/send-email/index.ts:261-263)
+>   The flag becomes true before delivery, while reportEdgeErrorInBackground discards the helper's errorLog='failed' result. A transient error_logs failure therefore prevents further attempts throughout the episode, leaving no table record despite recovery. Reproducing test: keep hourlyCount=100, use the real helper with the first error_logs POST returning 503 and subsequent POSTs succeeding, await the background task, then submit another capped request. Assert a successful error_logs write after recovery; the current code never attempts it. The handler tests replace delivery with a void spy.
+>   Recommendation: Distinguish an in-flight report from successful persistence and permit bounded retries after failure, while preserving the 429 response and concurrent-call deduplication.
+>
+> Next steps:
+> - Add both reproducing tests and address the cap-state failures before shipping.
+
+#### CC notes for triage — not dispositions, nothing applied
+
+Both findings read as real to CC, and both are properties of the per-episode flag rather than of the
+code it replaced. Neither reopens round 1's defect.
+
+- **Finding 1 errs toward over-reporting, not silence.** The reset at `:277-278` sits after an `await`
+  on the count query, so a stale `99` can land after a newer `100` and re-arm an episode already
+  reported — an extra `error_logs` row and an extra alert, never a missing one. Cheap containment
+  worth weighing against serialising the reads: the cap report is the one `reportEdgeErrorInBackground`
+  call in this function **without** a `dedupeKey`. Adding one would collapse duplicates inside the
+  helper's 60 s per-isolate window and bound the blast radius without touching control flow. That is a
+  suggestion for Michael, not a change made here.
+- **Finding 2 is the silent direction and matters more.** It is round 1's Medium in a new guise: the
+  flag is set before delivery and `reportEdgeErrorInBackground` discards `errorLog: 'failed'`, so one
+  transient `error_logs` failure suppresses the record for the whole episode and the refusals land in
+  no table — exactly the F/C outcome the rule forbids. It is also a fair criticism of CC's test design:
+  the harness replaces the helper with a void spy, so no test here can see a delivery failure.
+- Both are fail-vs-continue shaped and therefore Michael's, per the brief. One round was authorised
+  and one round ran; CC applied nothing and opened no PR.
