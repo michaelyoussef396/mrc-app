@@ -4,6 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // same range and builds. Remove once esm.sh serves the newer target.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?deps=@supabase/functions-js@2.4.4'
 import { z } from 'https://esm.sh/zod@3.22.4'
+import { reportEdgeError, reportEdgeErrorInBackground } from '../_shared/errorReporting.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,23 @@ function isRateLimited(ip: string): boolean {
   }
   entry.count++
   return entry.count > RATE_LIMIT
+}
+
+const HOURLY_SEND_CAP = 100
+const HOURLY_WINDOW_MS = 60 * 60 * 1000
+
+// Per isolate, and per cap EPISODE rather than per clock hour. Throttling on elapsed time
+// loses the second episode: the cap clears as sends age out of the window and can re-trip
+// inside the same hour, and because the cap writes no email_logs row those refusals would
+// then leave no trace in any table at all. Reset once back under the cap, so every episode
+// is reported exactly once per isolate.
+let hasReportedCurrentCapEpisode = false
+
+function tooManyRequests(reason: string): Response {
+  return new Response(
+    JSON.stringify({ error: reason }),
+    { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
 }
 
 const EmailRequestSchema = z.object({
@@ -190,12 +208,25 @@ Deno.serve(async (req) => {
         })
         if (error) throw error
       } catch (error) {
-        console.error('[send-email] Failed to record suppression', error?.code || 'unknown', error)
+        // Code and message only, never the whole error. A Postgres constraint violation names
+        // the constraint in its message but puts the failing row — recipient and subject — in
+        // DETAIL, so logging the object leaks a customer address into the function log.
+        reportEdgeErrorInBackground({
+          logger: 'send-email',
+          severity: 'error',
+          message: `Suppression audit insert failed (${error?.code || 'unknown'}): ${error?.message || 'unknown'}`,
+          // Without a key this writes one row per refused request, and the window where the
+          // function is deployed ahead of the CHECK migration makes every cooldown-suppressed
+          // send fail this insert. Keyed on the code so a different failure class still reports.
+          dedupeKey: `send-email:suppression-insert-failed:${error?.code || 'unknown'}`,
+          context: {
+            function: 'send-email',
+            lead_id: leadId || null,
+            template_name: templateName || 'custom',
+          },
+        })
       }
-      return new Response(
-        JSON.stringify({ error: reason }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return tooManyRequests(reason)
     }
 
     // Rate limiting: max 1 email to same recipient per 5 minutes
@@ -216,16 +247,41 @@ Deno.serve(async (req) => {
     }
 
     // Global rate limit: max 100 emails per hour
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const oneHourAgo = new Date(Date.now() - HOURLY_WINDOW_MS).toISOString()
     const { count: hourlyCount } = await supabase
       .from('email_logs')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'sent')
       .gt('sent_at', oneHourAgo)
 
-    if ((hourlyCount || 0) >= 100) {
-      return suppressionResponse('Rate limit exceeded: 100 emails per hour')
+    if ((hourlyCount || 0) >= HOURLY_SEND_CAP) {
+      // No email_logs row. One per refused request is what fanned a Slack post and an in-app
+      // notification out to every admin and technician for every request past the cap; one
+      // error_logs row per episode carries the same fact without the fan-out.
+      if (!hasReportedCurrentCapEpisode) {
+        // Awaited, and the episode is marked reported only once the row is persisted. Marking
+        // it before delivery meant one transient error_logs failure silenced the whole
+        // episode — refusals recorded in no table, the outcome the fail/continue rule forbids.
+        // Only the first refused request of an episode waits for this; the rest short-circuit
+        // on the flag. The dedupe key bounds the duplicates a stale under-cap read can cause.
+        const report = await reportEdgeError({
+          logger: 'send-email',
+          severity: 'warning',
+          message: `Hourly send cap reached (${HOURLY_SEND_CAP}); further sends are refused this window`,
+          dedupeKey: 'send-email:hourly-cap-episode',
+          context: {
+            function: 'send-email',
+            lead_id: leadId || null,
+            template_name: templateName || 'custom',
+          },
+        })
+        hasReportedCurrentCapEpisode = report.errorLog === 'written'
+      }
+      return tooManyRequests(`Rate limit exceeded: ${HOURLY_SEND_CAP} emails per hour`)
     }
+
+    // Under the cap again: this episode is over, so the next one reports on its first refusal.
+    hasReportedCurrentCapEpisode = false
 
     // Send email via Resend with retry
     const result = await sendWithRetry({
