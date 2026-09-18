@@ -43,7 +43,7 @@ into two reviewed units on this one branch, no waiver.
 - **Unit B** — `supabase/migrations/20260918000000_email_logs_notify_slack_suppressed.sql`.
   Codex base = unit A's commit SHA, declared before the run.
 
-Two reviews, two ledger rows, one PR. `599a52c` is 5 docs commits ahead of `origin/main` (`dedd0a3`),
+SUPERSEDED the same day, see "One run, not two" under Review: once Michael ruled that comments do not count, both commits together came to 125 non-comment source and one review against `599a52c` was both legal and what the brief asked for. The two commits stay separate in history. The ~165-190 estimate above was also wrong — the migration measured 214 mechanical, which is what prompted the ruling. `599a52c` is 5 docs commits ahead of `origin/main` (`dedd0a3`),
 so `--base origin/main` would drag those into the range — never use it for these two runs.
 
 ### Diff limit — measured both ways, Michael's ruling 2026-09-18
