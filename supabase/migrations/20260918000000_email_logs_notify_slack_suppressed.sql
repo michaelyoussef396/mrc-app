@@ -207,8 +207,18 @@ COMMIT;
 
 -- A4 · Readiness for step 3. 'suppressed' must already be a legal status, or the
 --      send-email deploy writes rows the CHECK rejects with 23514.
+--      Scoped to the status constraint BY NAME on purpose. `contype = 'c'` alone returns one
+--      row per CHECK on the table, and email_logs carries at least two — the status CHECK and
+--      email_logs_valid_email_check (20251111000017_add_missing_constraints.sql:288-299) — so
+--      an unscoped read emits t AND f on a correctly-prepared project and the STOP below
+--      misfires on a good apply.
 --   SELECT pg_get_constraintdef(oid) LIKE '%suppressed%' AS admits_suppressed
 --   FROM pg_constraint
---   WHERE conrelid = 'public.email_logs'::regclass AND contype = 'c';
---   DEV and PROD expect : t
+--   WHERE conrelid = 'public.email_logs'::regclass
+--     AND conname = 'email_logs_status_check';
+--   DEV and PROD expect : exactly one row, t
 --   f ⇒ 20260912000000 has not been applied to this project. STOP; apply it first.
+--   0 rows ⇒ the status CHECK is not named email_logs_status_check on this project. That is
+--       E-Q4's open question and it bites twice: 20260912000000 drops that constraint BY NAME
+--       with no IF EXISTS, so it aborts too. Establish the real name before applying either
+--       file. Do not guess it.

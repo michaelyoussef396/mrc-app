@@ -401,3 +401,61 @@ against the normalised baseline set.
 - Uncommitted files: none after this commit.
 - Untested: the migration against a live database — static only, by instruction. Also the new relative import, which no tsconfig and no test covers: run `deno check` on the function before deploying.
 <!-- resume:end -->
+
+---
+
+## Round 2 — Michael's triage applied, 2026-09-18
+
+Triage: fix Medium 1 per cap EPISODE, strengthen the two weak tests, add the `dedupeKey`, fix the A4
+query, and FILE the sibling DETAIL leak on the L-E2 row without fixing it. Second commit, mutation-
+check each, then ONE Codex round 2 against `599a52c` — approved, one round.
+
+- 14:58 · CC · CC · ROUND 2 test-first · `src/lib/__tests__/sendEmail.suppression.test.ts` · **3 failed / 15 passed (18)** — see below
+- 14:59 · CC · CC · ROUND 2 implement the four fixes · `send-email/index.ts`, the migration's A4 block · 18 passed (18)
+- 15:0x · CC · CC · ROUND 2 four mutation checks, each restored · `send-email/index.ts` · each killed only its own tests, `cmp` clean
+- 15:0x · CC · CC · ROUND 2 file the sibling DETAIL leak, not fix it · `docs/TODO.md` L-E2 row · filed
+- 15:0x · CC · CC · ROUND 2 full validation · whole suite + app tsc · 84 files / 1357 tests, T24 only; tsc 0 new / 0 gone
+
+### Red before the fixes (`red-2.log`) — 3 failed / 15 passed (18)
+
+| Fix | Red test | Why it failed on `090c73b` |
+|---|---|---|
+| Medium 1 | `reports a second cap episode in the same hour` | the per-clock-hour guard reported episode 1 and swallowed episode 2 — 1 call, 2 expected |
+| dedupeKey | `dedupes repeated suppression-audit failures` ×2 | no `dedupeKey` was passed at all |
+
+The two **strengthening** assertions — `keeps the recipient address out of the hourly cap report` and
+`carries the Postgres message into the suppression-audit report` — are green on the committed code by
+construction, so their proof is the mutation, not a red. That is what the triage asked for.
+
+### Mutation checks (`mut2-5..8.log`), each restored, `cmp` clean
+
+| # | Mutation | Result |
+|---|---|---|
+| 5 | delete the per-episode reset (reproduces the per-clock-hour defect) | 1 failed — only `reports a second cap episode in the same hour` |
+| 6 | put the recipient address into the cap-report message | 1 failed — only `keeps the recipient address out of the hourly cap report` |
+| 7 | drop `: ${error?.message}` from the suppression report | 2 failed — only the two `carries the Postgres message` cases |
+| 8 | remove the `dedupeKey` | 2 failed — only the two `dedupes repeated` cases |
+
+**Mutations 6 and 7 are the point of the exercise.** Both of those mutations passed 12/12 against the
+round-1 tests; they now fail. The cap-report PII hole and the unpinned "and message" half of E-F1 are
+closed as test gaps, not just as code.
+
+### What changed, and the one semantic consequence
+
+`lastHourlyCapReportAt` (a timestamp) becomes `hasReportedCurrentCapEpisode` (a boolean), reset on the
+first request back under the cap. Consequence worth stating plainly: a cap that stays tripped for five
+hours now produces **one** report per isolate for the whole stretch rather than five. That is the
+intended reading of "each new episode logs once", and it is strictly better than the old behaviour in
+the case that mattered — the re-trip inside one hour, which previously left refused sends in no table
+at all. Isolate churn is unchanged: a cold start still begins with the flag false, so the bound stays
+per-isolate, which is the shape ruled on 2026-09-18.
+
+A4 is now scoped by `conname = 'email_logs_status_check'`, with a `0 rows` branch pointing at E-Q4 —
+because `20260912000000` drops that constraint by that name with no `IF EXISTS`, so a name mismatch
+breaks both files, not just the check.
+
+### Filed, not fixed
+
+`docs/TODO.md` L-E2 row now carries the sibling DETAIL leak in `send-inspection-reminder/index.ts:257-266`
+(which logs `error.details` **and** the recipient address) and `receive-framer-lead/index.ts:924-928`,
+both frozen paths; plus the per-episode note and the still-open timeline half of E-Q3.

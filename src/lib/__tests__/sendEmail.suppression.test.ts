@@ -32,11 +32,14 @@ function setup(gate: keyof typeof reasons | 'none', insertError: unknown = null,
   if (rejects) insert.mockRejectedValue(insertError)
   const logError = vi.fn()
   const reportError = vi.fn()
+  // Mutable so a test can take the cap down and back up inside one isolate, which is the
+  // only way to exercise a second cap episode.
+  const state = { hourlyCount: gate === 'hourly' ? 100 : 0 }
   const query = {
     select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
     gt: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue({ data: gate === 'recipient' ? [{ id }] : [] }),
-    then: (resolve: (result: unknown) => unknown) => resolve({ count: gate === 'hourly' ? 100 : 0 }),
+    then: (resolve: (result: unknown) => unknown) => resolve({ count: state.hourlyCount }),
     insert,
   }
   const from = vi.fn(() => query)
@@ -53,7 +56,7 @@ function setup(gate: keyof typeof reasons | 'none', insertError: unknown = null,
   const send = (extra = {}) => handler(new Request('https://localhost.invalid/send-email', {
     method: 'POST', body: JSON.stringify({ ...body, ...extra }),
   }))
-  return { send, insert, fetch, from, query, logError, reportError }
+  return { send, insert, fetch, from, query, state, logError, reportError }
 }
 
 describe('send-email suppression audit', () => {
@@ -80,7 +83,7 @@ describe('send-email suppression audit', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('reports the hourly cap once per window however many requests it refuses', async () => {
+  it('reports one hourly cap episode once however many requests it refuses', async () => {
     const { send, reportError } = setup('hourly')
     await send()
     await send()
@@ -88,6 +91,23 @@ describe('send-email suppression audit', () => {
       severity: 'warning',
       context: expect.objectContaining({ function: 'send-email' }),
     }))
+  })
+
+  it('reports a second cap episode in the same hour', async () => {
+    const { send, reportError, state } = setup('hourly')
+    await send()
+    state.hourlyCount = 0
+    await send()
+    state.hourlyCount = 100
+    await send()
+    expect(reportError).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the recipient address out of the hourly cap report', async () => {
+    const { send, logError, reportError } = setup('hourly')
+    await send()
+    const logged = JSON.stringify([...logError.mock.calls, ...reportError.mock.calls])
+    expect(logged).not.toContain(body.to)
   })
 
   it.each([false, true])(
@@ -107,6 +127,24 @@ describe('send-email suppression audit', () => {
       expect(reportError).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
         message: expect.stringContaining(constraintError.code),
         context: expect.objectContaining({ lead_id: id, template_name: body.templateName }),
+      }))
+  })
+
+  it.each([false, true])(
+    'carries the Postgres message into the suppression-audit report (insert throws = %s)', async (rejects) => {
+      const { send, reportError } = setup('recipient', constraintError, rejects)
+      await send()
+      expect(reportError).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        message: expect.stringContaining(constraintError.message),
+      }))
+  })
+
+  it.each([false, true])(
+    'dedupes repeated suppression-audit failures (insert throws = %s)', async (rejects) => {
+      const { send, reportError } = setup('recipient', constraintError, rejects)
+      await send()
+      expect(reportError).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        dedupeKey: expect.stringContaining('suppression-insert-failed'),
       }))
   })
 

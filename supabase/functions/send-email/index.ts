@@ -31,10 +31,12 @@ function isRateLimited(ip: string): boolean {
 const HOURLY_SEND_CAP = 100
 const HOURLY_WINDOW_MS = 60 * 60 * 1000
 
-// Per isolate, deliberately. This bounds how often the cap refusal is REPORTED, not the cap
-// itself — that is a count over email_logs and stays exact. A handful of isolates each
-// reporting once an hour is the price of not writing a row per refused request.
-let lastHourlyCapReportAt = 0
+// Per isolate, and per cap EPISODE rather than per clock hour. Throttling on elapsed time
+// loses the second episode: the cap clears as sends age out of the window and can re-trip
+// inside the same hour, and because the cap writes no email_logs row those refusals would
+// then leave no trace in any table at all. Reset once back under the cap, so every episode
+// is reported exactly once per isolate.
+let hasReportedCurrentCapEpisode = false
 
 function tooManyRequests(reason: string): Response {
   return new Response(
@@ -213,6 +215,10 @@ Deno.serve(async (req) => {
           logger: 'send-email',
           severity: 'error',
           message: `Suppression audit insert failed (${error?.code || 'unknown'}): ${error?.message || 'unknown'}`,
+          // Without a key this writes one row per refused request, and the window where the
+          // function is deployed ahead of the CHECK migration makes every cooldown-suppressed
+          // send fail this insert. Keyed on the code so a different failure class still reports.
+          dedupeKey: `send-email:suppression-insert-failed:${error?.code || 'unknown'}`,
           context: {
             function: 'send-email',
             lead_id: leadId || null,
@@ -251,10 +257,9 @@ Deno.serve(async (req) => {
     if ((hourlyCount || 0) >= HOURLY_SEND_CAP) {
       // No email_logs row. One per refused request is what fanned a Slack post and an in-app
       // notification out to every admin and technician for every request past the cap; one
-      // error_logs row per window carries the same fact without the fan-out.
-      const now = Date.now()
-      if (now - lastHourlyCapReportAt >= HOURLY_WINDOW_MS) {
-        lastHourlyCapReportAt = now
+      // error_logs row per episode carries the same fact without the fan-out.
+      if (!hasReportedCurrentCapEpisode) {
+        hasReportedCurrentCapEpisode = true
         reportEdgeErrorInBackground({
           logger: 'send-email',
           severity: 'warning',
@@ -268,6 +273,9 @@ Deno.serve(async (req) => {
       }
       return tooManyRequests(`Rate limit exceeded: ${HOURLY_SEND_CAP} emails per hour`)
     }
+
+    // Under the cap again: this episode is over, so the next one reports on its first refusal.
+    hasReportedCurrentCapEpisode = false
 
     // Send email via Resend with retry
     const result = await sendWithRetry({
