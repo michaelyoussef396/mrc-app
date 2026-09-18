@@ -4,7 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // same range and builds. Remove once esm.sh serves the newer target.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?deps=@supabase/functions-js@2.4.4'
 import { z } from 'https://esm.sh/zod@3.22.4'
-import { reportEdgeErrorInBackground } from '../_shared/errorReporting.ts'
+import { reportEdgeError, reportEdgeErrorInBackground } from '../_shared/errorReporting.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -259,17 +259,23 @@ Deno.serve(async (req) => {
       // notification out to every admin and technician for every request past the cap; one
       // error_logs row per episode carries the same fact without the fan-out.
       if (!hasReportedCurrentCapEpisode) {
-        hasReportedCurrentCapEpisode = true
-        reportEdgeErrorInBackground({
+        // Awaited, and the episode is marked reported only once the row is persisted. Marking
+        // it before delivery meant one transient error_logs failure silenced the whole
+        // episode — refusals recorded in no table, the outcome the fail/continue rule forbids.
+        // Only the first refused request of an episode waits for this; the rest short-circuit
+        // on the flag. The dedupe key bounds the duplicates a stale under-cap read can cause.
+        const report = await reportEdgeError({
           logger: 'send-email',
           severity: 'warning',
           message: `Hourly send cap reached (${HOURLY_SEND_CAP}); further sends are refused this window`,
+          dedupeKey: 'send-email:hourly-cap-episode',
           context: {
             function: 'send-email',
             lead_id: leadId || null,
             template_name: templateName || 'custom',
           },
         })
+        hasReportedCurrentCapEpisode = report.errorLog === 'written'
       }
       return tooManyRequests(`Rate limit exceeded: ${HOURLY_SEND_CAP} emails per hour`)
     }

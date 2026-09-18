@@ -27,11 +27,19 @@ const constraintError = {
   details: `Failing row contains (${id}, ${body.to}, ${body.subject}, suppressed).`,
 }
 
-function setup(gate: keyof typeof reasons | 'none', insertError: unknown = null, rejects = false) {
+function setup(
+  gate: keyof typeof reasons | 'none',
+  insertError: unknown = null,
+  rejects = false,
+  // What the awaited reporter reports back about persistence. 'failed' is the case the void
+  // spy could never model, and it is the one that decides whether the episode stays open.
+  reportResult: { errorLog: string } = { errorLog: 'written' },
+) {
   const insert = vi.fn().mockResolvedValue({ error: insertError })
   if (rejects) insert.mockRejectedValue(insertError)
   const logError = vi.fn()
   const reportError = vi.fn()
+  const reportAwait = vi.fn().mockResolvedValue(reportResult)
   // Mutable so a test can take the cap down and back up inside one isolate, which is the
   // only way to exercise a second cap episode.
   const state = { hourlyCount: gate === 'hourly' ? 100 : 0 }
@@ -51,12 +59,13 @@ function setup(gate: keyof typeof reasons | 'none', insertError: unknown = null,
     // The transform strips every import line, so the _shared helper arrives as a sandbox
     // global exactly like createClient does.
     reportEdgeErrorInBackground: reportError,
+    reportEdgeError: reportAwait,
     Deno: { env: { get: () => 'dummy' }, serve: (fn: typeof handler) => { handler = fn } },
   })
   const send = (extra = {}) => handler(new Request('https://localhost.invalid/send-email', {
     method: 'POST', body: JSON.stringify({ ...body, ...extra }),
   }))
-  return { send, insert, fetch, from, query, state, logError, reportError }
+  return { send, insert, fetch, from, query, state, logError, reportError, reportAwait }
 }
 
 describe('send-email suppression audit', () => {
@@ -84,29 +93,46 @@ describe('send-email suppression audit', () => {
   })
 
   it('reports one hourly cap episode once however many requests it refuses', async () => {
-    const { send, reportError } = setup('hourly')
+    const { send, reportAwait } = setup('hourly')
     await send()
     await send()
-    expect(reportError).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    expect(reportAwait).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       severity: 'warning',
       context: expect.objectContaining({ function: 'send-email' }),
     }))
   })
 
   it('reports a second cap episode in the same hour', async () => {
-    const { send, reportError, state } = setup('hourly')
+    const { send, reportAwait, state } = setup('hourly')
     await send()
     state.hourlyCount = 0
     await send()
     state.hourlyCount = 100
     await send()
-    expect(reportError).toHaveBeenCalledTimes(2)
+    expect(reportAwait).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries the cap report when the error_logs write failed', async () => {
+    const { send, reportAwait } = setup('hourly', null, false, { errorLog: 'failed' })
+    await send()
+    await send()
+    expect(reportAwait).toHaveBeenCalledTimes(2)
+  })
+
+  it('dedupes the hourly cap report', async () => {
+    const { send, reportAwait } = setup('hourly')
+    await send()
+    expect(reportAwait).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      dedupeKey: expect.stringContaining('hourly-cap'),
+    }))
   })
 
   it('keeps the recipient address out of the hourly cap report', async () => {
-    const { send, logError, reportError } = setup('hourly')
+    const { send, logError, reportError, reportAwait } = setup('hourly')
     await send()
-    const logged = JSON.stringify([...logError.mock.calls, ...reportError.mock.calls])
+    const logged = JSON.stringify([
+      ...logError.mock.calls, ...reportError.mock.calls, ...reportAwait.mock.calls,
+    ])
     expect(logged).not.toContain(body.to)
   })
 

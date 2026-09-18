@@ -400,9 +400,9 @@ against the normalised baseline set.
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers; never quote the marker lines elsewhere in this log -->
 
 - No Stop hook maintains this file (the session is rooted in `~/mrc-integration`), so this block is filled by hand.
-- Next command: none. Round 2 triage is with Michael; then the PR. Nothing is pushed.
+- Next command: none. L-E2a is closed at CC's end: three code rounds, two Codex rounds, four ledger rows. Michael has the PR and the DEV/PROD apply. Nothing is pushed.
 - Uncommitted files: none after this commit.
-- Untested: the migration against a live database — static only, by instruction. Also the new relative import, which no tsconfig and no test covers: run `deno check` on the function before deploying.
+- Untested: the stale-read race is a known accepted risk, contained not eliminated, by decision. The migration against a live database — static only, by instruction. Also the new relative import, which no tsconfig and no test covers: run `deno check` on the function before deploying.
 <!-- resume:end -->
 
 ---
@@ -508,3 +508,59 @@ code it replaced. Neither reopens round 1's defect.
   the harness replaces the helper with a void spy, so no test here can see a delivery failure.
 - Both are fail-vs-continue shaped and therefore Michael's, per the brief. One round was authorised
   and one round ran; CC applied nothing and opened no PR.
+
+---
+
+## Round 3 — Michael's triage of Codex round 2, 2026-09-18. NO third Codex round (cap holds).
+
+Triage: fix Medium 2 outright, contain Medium 1 with a `dedupeKey` only and do NOT serialise the
+count reads, add the two Claude reviewer rows to the ledger and fill round 2's dispositions.
+
+- 15:24 · CC · CC · ROUND 3 test-first · `src/lib/__tests__/sendEmail.suppression.test.ts` · **4 failed / 16 passed (20)**
+- 15:24 · CC · CC · ROUND 3 implement: await the report, mark the episode only once persisted, dedupe the cap report · `supabase/functions/send-email/index.ts` · 20 passed (20)
+- 15:2x · CC · CC · ROUND 3 two mutation checks, each restored · `supabase/functions/send-email/index.ts` · each killed only its own test, `cmp` clean
+- 15:2x · CC · CC · ROUND 3 full validation · whole suite + app tsc · 84 files / 1359 tests, T24 only; tsc 0 new / 0 gone
+- 15:3x · CC · CC · ROUND 3 ledger: two claude rows added, round 2 dispositions filled · `docs/codex-review-log.md` · four L-E2a rows, 15 columns each, table parses
+
+### Red before the fixes (`red-3.log`) — 4 failed / 16 passed (20)
+
+| Fix | Red test | Why it failed on `6d24242` |
+|---|---|---|
+| Medium 2 | `retries the cap report when the error_logs write failed` | the flag was set before delivery, so a failed write silenced the rest of the episode — 0 calls on the awaited sink, 2 expected |
+| Medium 1 containment | `dedupes the hourly cap report` | the cap report was the one reporter call with no `dedupeKey` |
+| (migration) | `reports one hourly cap episode once…`, `reports a second cap episode in the same hour` | both moved from the fire-and-forget sink to the awaited one |
+
+### Mutation checks (`mut3-9..10.log`), each restored, `cmp` clean
+
+| # | Mutation | Result |
+|---|---|---|
+| 9 | mark the episode reported before delivery, ignoring the result | 1 failed — only `retries the cap report when the error_logs write failed` |
+| 10 | remove the cap-report `dedupeKey` | 1 failed — only `dedupes the hourly cap report` |
+
+**Mutation 9 is the one that matters**: it reproduces Codex round 2's Medium 2 exactly, and the new
+test catches it. That closes the void-spy blind spot the code reviewer named — the harness could not
+previously model a delivery failure at all, because it replaced the reporter with a spy that returns
+nothing.
+
+### What changed
+
+The cap branch moves from `reportEdgeErrorInBackground` (fire-and-forget, discards the result) to the
+awaited `reportEdgeError`, and sets `hasReportedCurrentCapEpisode = report.errorLog === 'written'`.
+So the episode is marked reported **only once the row is persisted**, and a transient `error_logs`
+failure leaves it clear for the next request to retry. Only the first refused request of an episode
+waits on this; the rest short-circuit on the flag. The suppression-failure path keeps the
+fire-and-forget form, because no state depends on its result.
+
+`dedupeKey: 'send-email:hourly-cap-episode'` is the containment for Medium 1, per the triage.
+
+### Stays open by decision — Medium 1 is contained, not eliminated
+
+The stale-read race Codex round 2 described is still there: the reset sits after an `await` on the
+count query, so a delayed under-cap count can re-arm an already reported episode. Michael ruled
+containment only, no serialising of the reads. The consequence is bounded to duplicate reports inside
+the helper's 60 s per-isolate dedupe window, and the error direction is **over**-reporting — an extra
+`error_logs` row and an extra alert, never a missing one. Recorded so it is a known accepted risk
+rather than something a later reader mistakes for an oversight.
+
+The awaited call also adds up to 3 s (the helper's `REPORT_TIMEOUT_MS`) to the first refused request
+of an episode. The 429 body and headers are unchanged.
