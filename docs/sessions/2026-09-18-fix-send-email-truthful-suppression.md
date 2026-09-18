@@ -46,6 +46,23 @@ into two reviewed units on this one branch, no waiver.
 Two reviews, two ledger rows, one PR. `599a52c` is 5 docs commits ahead of `origin/main` (`dedd0a3`),
 so `--base origin/main` would drag those into the range — never use it for these two runs.
 
+### Diff limit — measured both ways, Michael's ruling 2026-09-18
+
+**No waiver.** Michael's ruling: the 150 cap is SOURCE (D-Q2, ratified 15 Sep); comment headers and
+the verification block do not count, and the function body is an irreducible verbatim restatement —
+`CREATE OR REPLACE` cannot patch a body. Both figures are recorded here so the record is unambiguous,
+because the mechanical command in `AGENTS.md` (Diff limit) splits test from source by path only and
+does not itself exclude comments:
+
+| Unit | Mechanical (AGENTS.md command) | Non-comment, per the ruling |
+|---|---|---|
+| A — EF + tests | source **58** / test **70** | source **46** / test **62** |
+| B — migration | source **214** / test 0 | source **79** |
+
+Unit B's 214 breaks down as 104 function body (88 copied byte-for-byte from
+`20260823090000:212-299`, 16 added), 69 comment header, 41 comment verification block. Under the
+ruling both units are inside the cap and neither needed splitting further.
+
 Also ruled 2026-09-18: **E-Q2(b) in full** — the hourly cap drops the `email_logs` row AND writes one
 `error_logs` row per window, as recorded at `docs/sessions/2026-09-15-integration-2026-09-15.md:572`
 and `docs/TODO.md:37`, not the row removal alone.
@@ -62,6 +79,9 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 14:08 · CC · CC · UNIT A implement E-F1, E-Q1, E-Q2(b) · `supabase/functions/send-email/index.ts` · 12 passed (12)
 - 14:09 · CC · CC · UNIT A four mutation checks, each restored · `supabase/functions/send-email/index.ts` · each mutation killed only its own tests; source restored byte-identical (`cmp` clean)
 - 14:1x · CC · CC · UNIT A full validation · whole suite + app tsc · 84 files / 1351 tests, T24 only; tsc 0 new / 0 gone
+- 14:1x · CC · CC · UNIT A committed `3c44225` · three Touching paths · PII scan clean — the diff adds no literal address, the test interpolates `body.to`
+- 14:2x · CC · CC · UNIT B: assemble the migration from `20260823090000:212-299` so the preserved regions are byte-identical by construction, then diff to prove it · `supabase/migrations/20260918000000_email_logs_notify_slack_suppressed.sql` · fidelity diff shows ONLY the two ADDED 2026-09-18 regions
+- 14:2x · CC · CC · UNIT B cap measured at 214 mechanical, raised with Michael before committing · (none) · ruling: no waiver, comments do not count, 79 non-comment — proceed
 
 ## Codex threads
 
